@@ -1,11 +1,16 @@
 /**
- * dsh-sim-telemetry —— F1 25 UDP 遥测采集/分析插件（v3：安全加载版）
+ * dsh-sim-telemetry —— F1 25 UDP 遥测采集/分析插件（v4）
+ *
+ * v4 新增：
+ *  - UDP 端口可配（默认 20777，和 F1 25「设置 → Telemetry → UDP Port」保持一致）
+ *  - Python 环境自动检测：要求 >= 3.10，No more 硬编码某个人的安装路径
+ *  - 设置页可一键安装 Python 3.12（winget 优先，失败退回 python.org 官方静默安装）
+ *  - 可一键补 Pillow（画图才需要）
  *
  * 原则：加载阶段绝不抛错。所有异常写进 <data>/debug.log，最多次功能缺失，不会把宿主带崩。
- * 工具：telemetry_start / telemetry_stop / telemetry_summary / telemetry_plot
  */
-import { spawn, execFile, spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn, execFile } from "node:child_process";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -15,10 +20,13 @@ export const name = "sim-telemetry";
 export const inject = ["tools", "webServer"];
 
 const PY_DIR = fileURLToPath(new URL("./lib/py/", import.meta.url));
-const DEFAULT_PY = "C:\\Users\\Lenovo\\AppData\\Local\\Programs\\Python\\Python312\\python.exe";
-const DEFAULTS = { enabled: true, durationSec: 900, autoReportLaps: 0, pythonPath: "" };
-const state = { proc: null, startedAt: 0 };
+const DEFAULTS = { enabled: true, durationSec: 900, autoReportLaps: 0, pythonPath: "", udpPort: 20777 };
+const MIN_MINOR = 10; // 需要 Python 3.10+
+const PY_INSTALL_VERSION = "3.12.10";
+const PY_INSTALL_URL = `https://www.python.org/ftp/python/${PY_INSTALL_VERSION}/python-${PY_INSTALL_VERSION}-amd64.exe`;
+const state = { proc: null, startedAt: 0, install: null, deps: null };
 let cfg = { ...DEFAULTS };
+let probe = { running: false, done: false, info: null };
 
 function dataDir() {
   const home = process.env.DSH_HOME || join(homedir(), ".dsh");
@@ -31,28 +39,83 @@ function dbg(msg) {
   try { appendFileSync(join(dataDir(), "debug.log"), `${new Date().toISOString()} ${msg}\n`); } catch { /* 忽略 */ }
 }
 
-let cachedPython = null;
-
-function pythonExe() {
-  if (cachedPython) return cachedPython;
-  const candidates = [];
-  if (cfg.pythonPath) candidates.push(cfg.pythonPath);
-  if (process.env.SIM_PYTHON) candidates.push(process.env.SIM_PYTHON);
-  if (existsSync(DEFAULT_PY)) candidates.push(DEFAULT_PY);
-  candidates.push("python", "python3", "py");
-  for (const candidate of candidates) {
+function execFileAsync(file, args, options = {}) {
+  return new Promise((resolve) => {
     try {
-      const r = spawnSync(candidate, ["-c", "import sys;print(sys.version_info[0])"], {
-        timeout: 5000, windowsHide: true, encoding: "utf8",
+      execFile(file, args, {
+        timeout: 15000, windowsHide: true, maxBuffer: 4 * 1024 * 1024, encoding: "utf8", ...options,
+      }, (err, stdout, stderr) => {
+        resolve({ err: err || null, stdout: String(stdout || ""), stderr: String(stderr || "") });
       });
-      if (r && r.status === 0 && String(r.stdout || "").trim() === "3") {
-        cachedPython = candidate;
-        return candidate;
-      }
+    } catch (err) {
+      resolve({ err, stdout: "", stderr: "" });
+    }
+  });
+}
+
+/** 列出所有可能藏 Python 的地方（不用硬编码任何人的用户名） */
+function buildCandidates() {
+  const out = [];
+  const push = (label, exe, args) => { if (exe) out.push({ label, exe, args: args || [] }); };
+  if (cfg.pythonPath) push("设置里的路径", cfg.pythonPath, []);
+  if (process.env.SIM_PYTHON) push("SIM_PYTHON", process.env.SIM_PYTHON, []);
+  // Windows py launcher 按版本选
+  for (const v of ["3.13", "3.12", "3.11", "3.10"]) push(`py -${v}`, "py", [`-${v}`]);
+  // 每用户安装目录
+  const local = process.env.LOCALAPPDATA || "";
+  for (const v of ["313", "312", "311", "310"]) {
+    push(`Python${v}(用户目录)`, local ? join(local, "Programs", "Python", `Python${v}`, "python.exe") : "", []);
+  }
+  // 全用户安装目录
+  for (const v of ["313", "312", "311", "310"]) push(`C:\\Python${v}`, `C:\\Python${v}\\python.exe`, []);
+  push("PATH python", "python", []);
+  push("PATH python3", "python3", []);
+  return out;
+}
+
+/** 探测一个候选：返回 {exe, args, version} 或 null */
+async function probeOne(c) {
+  if (c.exe.includes("\\") && !existsSync(c.exe)) return null;
+  const r = await execFileAsync(c.exe, [...c.args, "-c", "import sys;sys.stdout.write('%d.%d.%d'%sys.version_info[:3])"], { timeout: 6000 });
+  if (r.err) return null;
+  const v = String(r.stdout || "").trim().split(/\s+/).pop() || "";
+  const m = v.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!m) return null;
+  if (Number(m[1]) !== 3 || Number(m[2]) < MIN_MINOR) return null;
+  return { exe: c.exe, args: c.args, version: v };
+}
+
+async function detectPythonAsync() {
+  for (const c of buildCandidates()) {
+    try {
+      if (c.exe.includes("\\") && !existsSync(c.exe)) continue;
+      const hit = await probeOne(c);
+      if (!hit) continue;
+      // 顺手看 Pillow 在不在（只有画图才用）
+      let pillowOk = false;
+      const p = await execFileAsync(hit.exe, [...hit.args, "-c", "import sys, PIL;sys.stdout.write(PIL.__version__)"], { timeout: 8000 });
+      if (!p.err && String(p.stdout || "").trim()) pillowOk = true;
+      return { exe: hit.exe, args: hit.args, version: hit.version, pythonOk: true, pillowOk, checkedAt: Date.now() };
     } catch { /* 试下一个 */ }
   }
-  cachedPython = "python";
-  return cachedPython;
+  return { exe: null, args: [], version: "", pythonOk: false, pillowOk: false, checkedAt: Date.now() };
+}
+
+function startProbe() {
+  if (probe.running) return;
+  probe.running = true;
+  detectPythonAsync().then((info) => {
+    probe = { running: false, done: true, info };
+    dbg(`python 探测：${info.pythonOk ? info.exe + " " + info.version : "未找到 3.10+"}`);
+  }).catch((err) => {
+    probe = { running: false, done: true, info: null };
+    dbg(`python 探测异常：${(err && err.message) || err}`);
+  });
+}
+
+function currentPython() {
+  if (!probe.done) startProbe();
+  return probe.info && probe.info.pythonOk ? probe.info : null;
 }
 
 function readSettings() {
@@ -63,20 +126,19 @@ function writeSettings(next) {
   try { writeFileSync(join(dataDir(), "settings.json"), JSON.stringify(next, null, 2), "utf8"); } catch { /* 忽略 */ }
 }
 
+function pyEnv() {
+  return { ...process.env, SIM_DATA_DIR: dataDir(), SIM_UDP_PORT: String(cfg.udpPort || 20777), PYTHONIOENCODING: "utf-8" };
+}
+
 function runPython(script, args = [], timeoutMs = 180000) {
   return new Promise((resolve) => {
+    const info = currentPython();
+    if (!info) { resolve({ ok: false, stdout: "", stderr: "没有找到 Python 3.10+，请到「设置 → 赛车遥测」点一键安装。" }); return; }
     try {
-      execFile(pythonExe(), [join(PY_DIR, script), ...args], {
-        env: { ...process.env, SIM_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
-        timeout: timeoutMs,
-        maxBuffer: 8 * 1024 * 1024,
-        windowsHide: true,
+      execFile(info.exe, [...info.args, join(PY_DIR, script), ...args], {
+        env: pyEnv(), timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, windowsHide: true,
       }, (error, stdout, stderr) => {
-        resolve({
-          ok: !error,
-          stdout: String(stdout || "").trim(),
-          stderr: String(stderr || "").trim().slice(-1200),
-        });
+        resolve({ ok: !error, stdout: String(stdout || "").trim(), stderr: String(stderr || "").trim().slice(-1200) });
       });
     } catch (err) {
       resolve({ ok: false, stdout: "", stderr: String((err && err.message) || err) });
@@ -87,19 +149,20 @@ function runPython(script, args = [], timeoutMs = 180000) {
 function startCollect(durationSec) {
   if (state.proc) return { ok: false, error: "已经在采集中" };
   if (cfg.enabled === false) return { ok: false, error: "插件功能已关闭（设置页里打开开关）" };
+  const info = currentPython();
+  if (!info) return { ok: false, error: "没有找到 Python 3.10+，先到设置页点「一键安装 Python」" };
   try {
     const dur = Math.max(30, Math.min(3600, Number(durationSec) || cfg.durationSec || 900));
-    const child = spawn(pythonExe(), [join(PY_DIR, "collect_f1.py"), String(dur), String(cfg.autoReportLaps || 0)], {
-      env: { ...process.env, SIM_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
+    const child = spawn(info.exe, [...info.args, join(PY_DIR, "collect_f1.py"), String(dur), String(cfg.autoReportLaps || 0)], {
+      env: pyEnv(), windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
     });
     state.proc = child;
     state.startedAt = Date.now();
-    child.stdout.on("data", () => {});
-    child.stderr.on("data", () => {});
+    let lastLines = "";
+    child.stdout.on("data", (d) => { lastLines = (lastLines + d).slice(-2000); });
+    child.stderr.on("data", (d) => { lastLines = (lastLines + d).slice(-2000); });
     child.on("exit", () => { state.proc = null; });
-    return { ok: true, pid: child.pid, durationSec: dur };
+    return { ok: true, pid: child.pid, durationSec: dur, udpPort: cfg.udpPort || 20777 };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
   }
@@ -116,16 +179,93 @@ function stopCollect() {
 }
 
 function status() {
+  if (!probe.done) startProbe();
+  const info = probe.info;
   return {
     ok: true,
     enabled: cfg.enabled !== false,
     durationSec: cfg.durationSec || 900,
     autoReportLaps: cfg.autoReportLaps || 0,
+    udpPort: cfg.udpPort || 20777,
     collecting: Boolean(state.proc),
+    collectingSeconds: state.proc ? Math.round((Date.now() - state.startedAt) / 1000) : 0,
     dataDir: dataDir(),
-    python: pythonExe(),
+    python: info && info.exe ? info.exe : null,
+    pythonVersion: info && info.version ? info.version : "",
+    pythonOk: info ? Boolean(info.pythonOk) : null,
+    pythonChecking: probe.running || !probe.done,
+    pillowOk: info ? Boolean(info.pillowOk) : null,
     pythonPath: cfg.pythonPath || "",
+    install: state.install,
+    deps: state.deps,
   };
+}
+
+/** 一键装 Python 3.12：先 winget，失败退回 python.org 官方静默安装 */
+function installPython() {
+  if (state.install && !state.install.done) return { ok: false, error: "已经在安装中了" };
+  state.install = { startedAt: Date.now(), step: "准备中…", done: false, ok: null, log: [] };
+  const setStep = (s) => { if (state.install) state.install.step = s; };
+  const log = (s) => { if (state.install) state.install.log.push(`${new Date().toLocaleTimeString()} ${s}`); };
+
+  (async () => {
+    try {
+      setStep("尝试用 winget 安装 Python 3.12（可能需要几分钟）…");
+      const w = await execFileAsync("winget", [
+        "install", "-e", "--id", "Python.Python.3.12", "--silent",
+        "--accept-package-agreements", "--accept-source-agreements", "--scope", "user",
+      ], { timeout: 20 * 60 * 1000 });
+      log(`winget ${w.err ? "失败：" + String(w.stderr || w.err.message).slice(0, 400) : "成功"}`);
+
+      if (w.err) {
+        setStep("winget 没成功，改下 python.org 官方安装包…");
+        const res = await fetch(PY_INSTALL_URL);
+        if (!res.ok) throw new Error("下载官方安装包失败 HTTP " + res.status);
+        const buf = Buffer.from(await res.arrayBuffer());
+        const tmp = join(dataDir(), "python-installer.exe");
+        writeFileSync(tmp, buf);
+        log(`已下载安装包 ${(buf.length / 1024 / 1024).toFixed(1)} MB`);
+        setStep("正在静默安装 Python（1-2 分钟）…");
+        const r2 = await execFileAsync(tmp, ["/quiet", "InstallAllUsers=0", "PrependPath=1", "Include_pip=1"], { timeout: 20 * 60 * 1000 });
+        log(`官方安装包 ${r2.err ? "失败：" + String(r2.stderr || r2.err.message).slice(0, 400) : "成功"}`);
+        try { unlinkSync(tmp); } catch { /* 忽略 */ }
+      }
+
+      setStep("重新检测 Python 环境…");
+      probe = { running: false, done: false, info: null };
+      const info = await detectPythonAsync();
+      probe = { running: false, done: true, info };
+      const ok = Boolean(info.pythonOk);
+      state.install = {
+        ...state.install, done: true, ok,
+        step: ok ? `安装完成：Python ${info.version}` : "安装结束，但还没检测到 Python 3.10+（可以重启 DSH 再试，或手动指定路径）",
+      };
+      dbg(`installPython 结束 ok=${ok} version=${info.version}`);
+    } catch (err) {
+      state.install = { ...state.install, done: true, ok: false, step: "安装失败：" + String((err && err.message) || err) };
+      dbg(`installPython 异常：${(err && err.message) || err}`);
+    }
+  })();
+
+  return { ok: true, started: true };
+}
+
+/** 装画图要用的 Pillow */
+function installDeps() {
+  if (state.deps && !state.deps.done) return { ok: false, error: "已经在装了" };
+  const info = currentPython();
+  if (!info) return { ok: false, error: "先装 Python 3.10+ 再装依赖" };
+  state.deps = { startedAt: Date.now(), step: "安装 Pillow…", done: false, ok: null };
+  execFileAsync(info.exe, [...info.args, "-m", "pip", "install", "--upgrade", "pillow"], { timeout: 10 * 60 * 1000 })
+    .then((r) => {
+      const ok = !r.err;
+      state.deps = { ...state.deps, done: true, ok, step: ok ? "Pillow 已安装" : "安装失败：" + String(r.stderr || r.err.message).slice(0, 300) };
+      probe = { running: false, done: true, info: { ...info, pillowOk: ok || info.pillowOk } };
+    })
+    .catch((err) => {
+      state.deps = { ...state.deps, done: true, ok: false, step: "安装失败：" + String((err && err.message) || err) };
+    });
+  return { ok: true, started: true };
 }
 
 function textOutput(_args, value) {
@@ -162,11 +302,11 @@ export function apply(ctx, config = {}) {
 
     register({
       name: "telemetry_start",
-      description: "开始记录 F1 25 的 UDP 遥测（端口 20777）。后台跑，跑满时长或 telemetry_stop 停止。不跑车时别开。",
+      description: "开始记录 F1 25 的 UDP 遥测（默认端口 20777，可在设置里改）。后台跑，跑满时长或 telemetry_stop 停止。不跑车时别开。",
       parameters: { durationSec: { type: "number", description: "最长秒数，默认 900" } },
       async execute(args) {
         const r = startCollect(args.durationSec);
-        return r.ok ? `已开始采集（PID ${r.pid}，最长 ${r.durationSec}s）` : r.error;
+        return r.ok ? `已开始采集（PID ${r.pid}，最长 ${r.durationSec}s，端口 ${r.udpPort}）` : r.error;
       },
     });
 
@@ -222,16 +362,34 @@ export function apply(ctx, config = {}) {
                 req.on("error", () => resolve({}));
               });
               if (req.method === "GET" && path === "/api/sim-telemetry/status") return send(200, status());
+              if (req.method === "GET" && path === "/api/sim-telemetry/recheck") {
+                probe = { running: false, done: false, info: null };
+                startProbe();
+                return send(200, status());
+              }
               if (req.method === "POST" && path === "/api/sim-telemetry/settings") {
                 const b = await body();
                 if (typeof b.enabled === "boolean") cfg.enabled = b.enabled;
                 if (Number(b.durationSec) > 0) cfg.durationSec = Math.max(30, Math.min(3600, Number(b.durationSec)));
                 if (b.autoReportLaps !== undefined) cfg.autoReportLaps = Math.max(0, Math.min(50, Number(b.autoReportLaps) || 0));
-                if (typeof b.pythonPath === "string") { cfg.pythonPath = b.pythonPath.trim(); cachedPython = null; }
+                if (typeof b.pythonPath === "string") {
+                  cfg.pythonPath = b.pythonPath.trim();
+                  probe = { running: false, done: false, info: null };
+                  startProbe();
+                }
+                if (b.udpPort !== undefined) {
+                  const p = Number(b.udpPort);
+                  if (p >= 1 && p <= 65535) cfg.udpPort = Math.floor(p);
+                }
 
-                writeSettings({ enabled: cfg.enabled, durationSec: cfg.durationSec, autoReportLaps: cfg.autoReportLaps, pythonPath: cfg.pythonPath || "" });
+                writeSettings({
+                  enabled: cfg.enabled, durationSec: cfg.durationSec, autoReportLaps: cfg.autoReportLaps,
+                  pythonPath: cfg.pythonPath || "", udpPort: cfg.udpPort || 20777,
+                });
                 return send(200, status());
               }
+              if (req.method === "POST" && path === "/api/sim-telemetry/install-python") return send(200, installPython());
+              if (req.method === "POST" && path === "/api/sim-telemetry/install-deps") return send(200, installDeps());
               if (req.method === "POST" && path === "/api/sim-telemetry/start") {
                 const b = await body();
                 const r = startCollect(b.durationSec);

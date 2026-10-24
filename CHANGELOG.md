@@ -12,3 +12,10 @@
 - 设置面板：启用开关、默认时长、自动报告圈数、Python 路径
 - 工具：`telemetry_start` / `telemetry_stop` / `telemetry_summary` / `telemetry_plot`
 - Python 自动探测（python / python3 / py），找不到可在面板手填
+
+## 0.2.0 — 2026-10-24
+
+- UDP 端口可配置（默认 20777，与 F1 25 游戏设置一致）
+- Python 环境自动检测：要求 >= 3.10，不再硬编码某台机器的安装路径
+- 设置页显示 Python 版本/路径/是否缺 Pillow，支持一键安装 Python 3.12（winget 优先，失败退回 python.org 官方静默安装）与一键补 Pillow
+- 修复采集结束后调用不存在的 telemetry_summary.py（改为 summary.py）

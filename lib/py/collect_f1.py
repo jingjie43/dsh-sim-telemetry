@@ -14,6 +14,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 DURATION = float(sys.argv[1]) if len(sys.argv) > 1 else 600.0
 TARGET_LAPS = int(sys.argv[2]) if len(sys.argv) > 2 else 0  # 0 = 不限圈数
+UDP_PORT = int(os.environ.get("SIM_UDP_PORT") or "20777")
 OUTDIR = os.environ.get("SIM_DATA_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "f1data")
 os.makedirs(OUTDIR, exist_ok=True)
 stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -21,11 +22,11 @@ out = os.path.join(OUTDIR, f"allcars_{stamp}.jsonl")
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind(("0.0.0.0", 20777))
+sock.bind(("0.0.0.0", UDP_PORT))
 sock.settimeout(1.0)
 
 fh = open(out, "w", encoding="utf-8", buffering=1)
-print(f"[all] 采集全部车 → {out}  {DURATION:.0f}s  目标圈数={TARGET_LAPS or '不限'}")
+print(f"[all] 采集全部车 → {out}  {DURATION:.0f}s  目标圈数={TARGET_LAPS or '不限'}  端口={UDP_PORT}")
 start = time.time()
 last_write = 0.0
 tracks = {}
@@ -96,6 +97,6 @@ print("[all] 输出:", out)
 try:
     here = os.path.dirname(os.path.abspath(__file__))
     print("[all] 生成摘要与表格…", flush=True)
-    subprocess.run([sys.executable, os.path.join(here, "telemetry_summary.py")], timeout=180)
+    subprocess.run([sys.executable, os.path.join(here, "summary.py")], timeout=180)
 except Exception as exc:  # noqa: BLE001
     print("[all] 摘要生成失败:", exc)
