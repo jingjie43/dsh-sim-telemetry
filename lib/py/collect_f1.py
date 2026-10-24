@@ -137,14 +137,19 @@ while time.time() - start < DURATION:
             "id": 2, "st": round(st, 3),
             "lastLap": last_ms, "curLap": cur_ms, "lapNum": lap_num,
         }) + "\n")
-        # --- 圈数检测：lastLap 变化一次 = 跑完一圈 ---
+        # --- 圈数检测：lastLap 变化 = 跑完一圈 ---
+        # ⚠️ 采集刚开头那几秒 lastLap 会抖一两下（刚过线 / 刚从维修区出来 / 重进赛道），
+        #    那不是「跑完的圈」。以前把抖的那两下也算进去，于是 autoReportLaps=3
+        #    实际只跑完 1 圈就提前停了（2026-10-24 实测踩到）。
         if last_ms and last_ms != seen_last_lap:
+            first_seen = seen_last_lap is None
             seen_last_lap = last_ms
-            laps_done += 1
-            print(f"[sim] 已完成 {laps_done} 圈（目标 {TARGET_LAPS or '不限'}）", flush=True)
-            if TARGET_LAPS > 0 and laps_done >= TARGET_LAPS:
-                print(f"[sim] 达到目标圈数 {TARGET_LAPS}，自动停止采集", flush=True)
-                break
+            if not first_seen and time.time() - start > 3.0:
+                laps_done += 1
+                print(f"[sim] 已完成 {laps_done} 圈（目标 {TARGET_LAPS or '不限'}）", flush=True)
+                if TARGET_LAPS > 0 and laps_done >= TARGET_LAPS:
+                    print(f"[sim] 达到目标圈数 {TARGET_LAPS}，自动停止采集", flush=True)
+                    break
 
     elif pkt_id == 1:
         payload = {
@@ -161,10 +166,12 @@ fh_all.close()
 print(f"[sim] 结束：标准帧 {frames} 行 · 全车 {allcars_rows} 行 · 完成 {laps_done} 圈")
 print("[sim] 输出:", lane)
 
-# 采集一结束，自动生成摘要 + CSV 表格
-try:
-    here = os.path.dirname(os.path.abspath(__file__))
-    print("[sim] 生成摘要与表格…", flush=True)
-    subprocess.run([sys.executable, os.path.join(here, "summary.py")], timeout=180)
-except Exception as exc:  # noqa: BLE001
-    print("[sim] 摘要生成失败:", exc)
+# 采集一结束（跑满设定圈数时会自动走到这里），把摘要、表格、图一次出全。
+# 静戒 2026-10-24 要求：图片也要跟着圈数设定自动生成，不用再手动喊。
+here = os.path.dirname(os.path.abspath(__file__))
+for script, label in (("summary.py", "摘要与表格"), ("plot.py", "速度曲线图与油门刹车图")):
+    try:
+        print(f"[sim] 生成{label}…", flush=True)
+        subprocess.run([sys.executable, os.path.join(here, script)], timeout=240)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[sim] {label}生成失败:", exc)

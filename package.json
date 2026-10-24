@@ -1,6 +1,6 @@
 {
   "name": "dsh-sim-telemetry",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "F1 25 UDP 遥测采集与分析（DSH 插件）",
   "type": "module",
   "main": "index.js",
