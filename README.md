@@ -22,7 +22,7 @@
 
 | 方式 | 填什么 |
 |---|---|
-| GitHub（推荐） | `https://github.com/<你的用户名>/dsh-f1-telemetry` |
+| GitHub（推荐） | `https://github.com/jingjie43/dsh-f1-telemetry` |
 | npm | `dsh-f1-telemetry`（需要先发布到 npm） |
 | 本地 | 插件目录的绝对路径 |
 
