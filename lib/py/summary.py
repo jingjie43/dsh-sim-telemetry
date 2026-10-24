@@ -4,7 +4,7 @@
 - 打印 ≤ 15 行：圈速、与最佳圈的差、损失最大的 3 段、最差的 3 个弯、一句该改什么
 - 完整明细写到 summary_full_<ts>.md，不打印
 
-用法: python f1_summary.py [frames_xxx.jsonl]
+用法: python telemetry_summary.py [frames_xxx.jsonl]
 """
 import glob
 import json
@@ -13,7 +13,7 @@ import sys
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-HERE = os.environ.get("F1_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
+HERE = os.environ.get("SIM_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state_summary.json")
 NSEG = 20
 TRACKS = {0: "Melbourne", 1: "Shanghai", 2: "Bahrain", 3: "Jeddah", 4: "Imola", 5: "Monza",

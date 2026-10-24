@@ -1,4 +1,4 @@
-# dsh-f1-telemetry
+# dsh-sim-telemetry
 
 给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）用的 **F1 25 遥测插件**：边跑边记，跑完自动出圈速、弯道和"该改哪儿"。
 
@@ -22,11 +22,11 @@
 
 | 方式 | 填什么 |
 |---|---|
-| GitHub（推荐） | `https://github.com/jingjie43/dsh-f1-telemetry` |
-| npm | `dsh-f1-telemetry`（需要先发布到 npm） |
+| GitHub（推荐） | `https://github.com/jingjie43/dsh-sim-telemetry` |
+| npm | `dsh-sim-telemetry`（需要先发布到 npm） |
 | 本地 | 插件目录的绝对路径 |
 
-装完**重启 DSH**，设置左侧会出现「F1 遥测」。
+装完**重启 DSH**，设置左侧会出现「赛车遥测」。
 
 ## 环境依赖
 
@@ -42,20 +42,20 @@ pip install Pillow
 ## 使用
 
 1. **游戏里开启遥测**：F1 25 → 设置 → 遥测 → UDP 开启，端口 `20777`
-2. **DSH 设置 → F1 遥测**：
+2. **DSH 设置 → 赛车遥测**：
    - 打开「启用插件功能」
    - 设「默认记录时长」（分钟）
    - 想自动收工就设「跑到第几圈自动出报告」（0 = 不自动停）
    - 点「开始记录」
 3. **进赛道跑**，跑完点「停止记录」（或等它自动停）
-4. **看报告**：`~/.dsh/f1-telemetry/`
+4. **看报告**：`~/.dsh/sim-telemetry/`
 
-也可以在对话里直接让 AI 操作：`f1_start`、`f1_stop`、`f1_summary`、`f1_plot`。
+也可以在对话里直接让 AI 操作：`telemetry_start`、`telemetry_stop`、`telemetry_summary`、`telemetry_plot`。
 
 ## 数据目录
 
 ```
-~/.dsh/f1-telemetry/
+~/.dsh/sim-telemetry/
 ├── allcars_*.jsonl     # 原始遥测（4Hz，22 辆车）
 ├── laps_*.csv          # 每圈汇总表
 ├── summary_full_*.md   # 完整明细
@@ -78,9 +78,9 @@ pip install Pillow
 index.js            # 插件主体（工具 + 设置页路由）
 client.js           # 设置面板（浏览器端自注册脚本）
 lib/py/
-  f1_collect_all.py # 采集（UDP → JSONL）
-  f1_summary.py     # 摘要 + CSV
-  f1_plot.py        # 画图（Pillow）
+  collect_f1.py # 采集（UDP → JSONL）
+  telemetry_summary.py     # 摘要 + CSV
+  telemetry_plot.py        # 画图（Pillow）
 cordis.patch.yml    # DSH 插件挂载声明
 ```
 

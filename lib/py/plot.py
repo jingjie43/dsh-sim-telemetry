@@ -1,6 +1,6 @@
 """F1 25 速度曲线图 + 弯道拆解（PIL 绘制，无 matplotlib）。
 
-用法: python f1_plot.py [frames_xxx.jsonl]
+用法: python telemetry_plot.py [frames_xxx.jsonl]
 输出: plots/speed_<ts>.png, plots/pedals_<ts>.png, corners_<ts>.md
 """
 import glob
@@ -194,7 +194,7 @@ def corners_of(lap):
 
 
 def main():
-    here = os.environ.get("F1_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
+    here = os.environ.get("SIM_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
     pattern = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "f1data", "frames_*.jsonl")
     files = [f for f in glob.glob(pattern) if os.path.getsize(f) > 100000]
     files.sort(key=os.path.getsize)

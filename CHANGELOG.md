@@ -10,5 +10,5 @@
 - 三种产出：文字摘要 / `laps_*.csv` 表格 / `summary_full_*.md` 完整明细
 - 速度曲线图、油门刹车图（Pillow 绘制，无需 matplotlib）
 - 设置面板：启用开关、默认时长、自动报告圈数、Python 路径
-- 工具：`f1_start` / `f1_stop` / `f1_summary` / `f1_plot`
+- 工具：`telemetry_start` / `telemetry_stop` / `telemetry_summary` / `telemetry_plot`
 - Python 自动探测（python / python3 / py），找不到可在面板手填

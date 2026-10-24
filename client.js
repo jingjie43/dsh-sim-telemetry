@@ -1,16 +1,16 @@
 /**
- * dsh-f1-telemetry —— 浏览器半端（「设置 → F1 遥测」一页）
+ * dsh-sim-telemetry —— 浏览器半端（「设置 → 赛车遥测」一页）
  *
  * 约定：client bundle 不是 ESM，是自注册脚本
  *   window.__ModuleLoader__.load({ id: '<package name>', factory: (require) => ({ inject, apply }) })
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-f1-telemetry',
+  id: 'dsh-sim-telemetry',
   factory: (require) => {
     const React = require('react')
     const h = React.createElement
 
-    const API = '/api/f1-telemetry'
+    const API = '/api/sim-telemetry'
 
     const jget = async (p) => {
       const r = await fetch(API + p, { credentials: 'same-origin' })
@@ -79,7 +79,7 @@ window.__ModuleLoader__.load({
 
       return h('div', { style: S.box },
         h('div', null,
-          h('div', { style: S.title }, 'F1 遥测'),
+          h('div', { style: S.title }, '赛车遥测'),
           h('div', { style: S.note },
             '记录 F1 25 的 UDP 遥测（端口 20777），按需开始/停止；不跑车的时候不会监听。')),
         err ? h('div', { style: S.err }, '出错：' + err) : null,
@@ -132,7 +132,7 @@ window.__ModuleLoader__.load({
             }, '开始记录'),
           h('span', { style: S.note }, collecting ? `采集中：已 ${st.collectingSeconds} 秒` : '空闲')),
         h('div', { style: S.note }, '数据目录：' + (st ? st.dataDir : '—')),
-        h('div', { style: S.note }, '提示：也可以在对话里让大肥鱼用 f1_start / f1_summary / f1_plot 这几个工具。'),
+        h('div', { style: S.note }, '提示：也可以在对话里让大肥鱼用 telemetry_start / telemetry_summary / telemetry_plot 这几个工具。'),
       )
     }
 
@@ -142,7 +142,7 @@ window.__ModuleLoader__.load({
         const slots = (typeof ctx.get === 'function' ? ctx.get('slots') : undefined) || ctx.slots
         if (!slots) return
         slots.inject('settings.section', () => slots.register(
-          { name: 'settings.section', id: 'f1-telemetry', order: 31, label: 'F1 遥测' },
+          { name: 'settings.section', id: 'sim-telemetry', order: 31, label: '赛车遥测' },
           () => h(Panel),
         ))
       },

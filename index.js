@@ -1,8 +1,8 @@
 /**
- * dsh-f1-telemetry —— F1 25 UDP 遥测采集/分析插件（v3：安全加载版）
+ * dsh-sim-telemetry —— F1 25 UDP 遥测采集/分析插件（v3：安全加载版）
  *
  * 原则：加载阶段绝不抛错。所有异常写进 <data>/debug.log，最多次功能缺失，不会把宿主带崩。
- * 工具：f1_start / f1_stop / f1_summary / f1_plot
+ * 工具：telemetry_start / telemetry_stop / telemetry_summary / telemetry_plot
  */
 import { spawn, execFile, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 
-export const name = "f1-telemetry";
+export const name = "sim-telemetry";
 export const inject = ["tools", "webServer"];
 
 const PY_DIR = fileURLToPath(new URL("./lib/py/", import.meta.url));
@@ -22,7 +22,7 @@ let cfg = { ...DEFAULTS };
 
 function dataDir() {
   const home = process.env.DSH_HOME || join(homedir(), ".dsh");
-  const dir = join(home, "f1-telemetry");
+  const dir = join(home, "sim-telemetry");
   try { mkdirSync(dir, { recursive: true }); } catch { /* 忽略 */ }
   return dir;
 }
@@ -37,7 +37,7 @@ function pythonExe() {
   if (cachedPython) return cachedPython;
   const candidates = [];
   if (cfg.pythonPath) candidates.push(cfg.pythonPath);
-  if (process.env.F1_PYTHON) candidates.push(process.env.F1_PYTHON);
+  if (process.env.SIM_PYTHON) candidates.push(process.env.SIM_PYTHON);
   if (existsSync(DEFAULT_PY)) candidates.push(DEFAULT_PY);
   candidates.push("python", "python3", "py");
   for (const candidate of candidates) {
@@ -67,7 +67,7 @@ function runPython(script, args = [], timeoutMs = 180000) {
   return new Promise((resolve) => {
     try {
       execFile(pythonExe(), [join(PY_DIR, script), ...args], {
-        env: { ...process.env, F1_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
+        env: { ...process.env, SIM_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
         timeout: timeoutMs,
         maxBuffer: 8 * 1024 * 1024,
         windowsHide: true,
@@ -89,8 +89,8 @@ function startCollect(durationSec) {
   if (cfg.enabled === false) return { ok: false, error: "插件功能已关闭（设置页里打开开关）" };
   try {
     const dur = Math.max(30, Math.min(3600, Number(durationSec) || cfg.durationSec || 900));
-    const child = spawn(pythonExe(), [join(PY_DIR, "f1_collect_all.py"), String(dur), String(cfg.autoReportLaps || 0)], {
-      env: { ...process.env, F1_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
+    const child = spawn(pythonExe(), [join(PY_DIR, "collect_f1.py"), String(dur), String(cfg.autoReportLaps || 0)], {
+      env: { ...process.env, SIM_DATA_DIR: dataDir(), PYTHONIOENCODING: "utf-8" },
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -161,8 +161,8 @@ export function apply(ctx, config = {}) {
     };
 
     register({
-      name: "f1_start",
-      description: "开始记录 F1 25 的 UDP 遥测（端口 20777）。后台跑，跑满时长或 f1_stop 停止。不跑车时别开。",
+      name: "telemetry_start",
+      description: "开始记录 F1 25 的 UDP 遥测（端口 20777）。后台跑，跑满时长或 telemetry_stop 停止。不跑车时别开。",
       parameters: { durationSec: { type: "number", description: "最长秒数，默认 900" } },
       async execute(args) {
         const r = startCollect(args.durationSec);
@@ -171,8 +171,8 @@ export function apply(ctx, config = {}) {
     });
 
     register({
-      name: "f1_stop",
-      description: "停止 F1 遥测采集，已采数据保留。",
+      name: "telemetry_stop",
+      description: "停止 赛车遥测采集，已采数据保留。",
       parameters: {},
       async execute() {
         const r = stopCollect();
@@ -181,22 +181,22 @@ export function apply(ctx, config = {}) {
     });
 
     register({
-      name: "f1_summary",
-      description: "分析已采集的 F1 遥测，只返回省 token 的结论：圈速、与最佳的差、最慢的弯、该改什么。",
+      name: "telemetry_summary",
+      description: "分析已采集的 赛车遥测，只返回省 token 的结论：圈速、与最佳的差、最慢的弯、该改什么。",
       parameters: {},
       async execute() {
-        const r = await runPython("f1_summary.py", [], 180000);
+        const r = await runPython("telemetry_summary.py", [], 180000);
         const out = r.stdout.split("\n").slice(0, 40).join("\n");
         return out || (r.stderr ? `失败：${r.stderr}` : "没有可分析的数据。");
       },
     });
 
     register({
-      name: "f1_plot",
-      description: "生成 F1 遥测速度曲线图与油门刹车图，返回 PNG 路径。",
+      name: "telemetry_plot",
+      description: "生成 赛车遥测速度曲线图与油门刹车图，返回 PNG 路径。",
       parameters: {},
       async execute() {
-        const r = await runPython("f1_plot.py", [], 240000);
+        const r = await runPython("telemetry_plot.py", [], 240000);
         const lines = r.stdout.split("\n").filter((l) => l.includes(":") || l.includes("圈数"));
         return lines.slice(0, 8).join("\n") || r.stderr || "没有数据可画。";
       },
@@ -207,7 +207,7 @@ export function apply(ctx, config = {}) {
       if (ctx.webServer && typeof ctx.webServer.register === "function") {
         ctx.effect(() => ctx.webServer.register({
           kind: "prefix",
-          path: "/api/f1-telemetry",
+          path: "/api/sim-telemetry",
           handler: async (req, res) => {
             const send = (code, obj) => {
               try { res.statusCode = code; res.setHeader("content-type", "application/json; charset=utf-8"); res.end(JSON.stringify(obj)); } catch { /* 连接已断 */ }
@@ -221,8 +221,8 @@ export function apply(ctx, config = {}) {
                 req.on("end", () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); } });
                 req.on("error", () => resolve({}));
               });
-              if (req.method === "GET" && path === "/api/f1-telemetry/status") return send(200, status());
-              if (req.method === "POST" && path === "/api/f1-telemetry/settings") {
+              if (req.method === "GET" && path === "/api/sim-telemetry/status") return send(200, status());
+              if (req.method === "POST" && path === "/api/sim-telemetry/settings") {
                 const b = await body();
                 if (typeof b.enabled === "boolean") cfg.enabled = b.enabled;
                 if (Number(b.durationSec) > 0) cfg.durationSec = Math.max(30, Math.min(3600, Number(b.durationSec)));
@@ -232,12 +232,12 @@ export function apply(ctx, config = {}) {
                 writeSettings({ enabled: cfg.enabled, durationSec: cfg.durationSec, autoReportLaps: cfg.autoReportLaps, pythonPath: cfg.pythonPath || "" });
                 return send(200, status());
               }
-              if (req.method === "POST" && path === "/api/f1-telemetry/start") {
+              if (req.method === "POST" && path === "/api/sim-telemetry/start") {
                 const b = await body();
                 const r = startCollect(b.durationSec);
                 return send(200, { ...r, ...status() });
               }
-              if (req.method === "POST" && path === "/api/f1-telemetry/stop") {
+              if (req.method === "POST" && path === "/api/sim-telemetry/stop") {
                 const r = stopCollect();
                 return send(200, { ...r, ...status() });
               }
@@ -246,7 +246,7 @@ export function apply(ctx, config = {}) {
               return send(500, { ok: false, error: String((err && err.message) || err) });
             }
           },
-        }), "f1-telemetry: settings route");
+        }), "sim-telemetry: settings route");
         dbg("webServer 路由已注册");
       } else {
         dbg("ctx.webServer 不可用，跳过路由");
