@@ -1,14 +1,15 @@
 """F1 25 速度曲线图 + 弯道拆解（PIL 绘制，无 matplotlib）。
 
-用法: python telemetry_plot.py [frames_xxx.jsonl]
+用法: python plot.py [frames_xxx.jsonl]
 输出: plots/speed_<ts>.png, plots/pedals_<ts>.png, corners_<ts>.md
 """
 import glob
-import json
 import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
+
+from laps import cut_laps, fmt, load
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -24,60 +25,6 @@ TRACKS = {0: "Melbourne", 1: "Shanghai", 2: "Bahrain", 3: "Jeddah", 4: "Imola", 
 COLORS = [(60, 120, 255), (255, 110, 60), (40, 180, 120), (200, 90, 220), (230, 180, 40), (120, 120, 120)]
 
 
-def fmt(ms):
-    if not ms:
-        return "-"
-    m, rem = divmod(int(ms), 60000)
-    s, msec = divmod(rem, 1000)
-    return f"{m}:{s:02d}.{msec:03d}"
-
-
-def load(path):
-    frames, laps, sess = [], [], {}
-    for line in open(path, encoding="utf-8"):
-        try:
-            r = json.loads(line)
-        except ValueError:
-            continue
-        if r.get("id") == 6:
-            frames.append(r)
-        elif r.get("id") == 2:
-            laps.append(r)
-        elif r.get("id") == 1 and not sess:
-            sess = r
-    return frames, laps, sess
-
-
-def cut_laps(frames, laps):
-    """用 currentLapTime 归零作为圈边界，返回 [{n, lap_ms, fr}]"""
-    marks = []
-    prev = None
-    for r in laps:
-        c = r.get("curLap", 0)
-        if prev is not None and c < prev - 500:
-            marks.append(r["st"])
-        prev = c
-    # 用 lastLap 补圈速
-    lts = []
-    seen = None
-    for r in laps:
-        v = r.get("lastLap", 0)
-        if v and v != seen:
-            seen = v
-            lts.append(v)
-    laps_out = []
-    for i, edge in enumerate(marks):
-        nxt = marks[i + 1] if i + 1 < len(marks) else edge + 100
-        fr = [f for f in frames if edge - 0.2 <= f["st"] < nxt - 0.2]
-        if len(fr) < 500:
-            continue
-        lap_ms = lts[i + 1] if i + 1 < len(lts) else (lts[-1] if lts else 0)
-        laps_out.append({"n": len(laps_out) + 1, "lap_ms": lap_ms, "fr": fr})
-    # 用帧数校验（20Hz）
-    laps_out = [l for l in laps_out if 900 <= len(l["fr"]) <= 2500]
-    return laps_out
-
-
 def draw_speed(laps, title, out_path):
     W, H = 1600, 800
     L, R, T, B = 90, 40, 70, 70
@@ -87,7 +34,8 @@ def draw_speed(laps, title, out_path):
     f11 = ImageFont.truetype(FONT, 15)
     d.text((L, 20), title, font=f13, fill=(20, 20, 20))
 
-    max_t = max(l["fr"][-1]["st"] - l["fr"][0]["st"] for l in laps)
+    # 横轴按「圈内时间」对齐：以每圈真实起点（end - lap_ms）为 0，缺开头的圈曲线自然短一截
+    max_t = max(l["lap_ms"] for l in laps) / 1000.0
     max_v = 360
 
     def X(t, t0):
@@ -110,7 +58,7 @@ def draw_speed(laps, title, out_path):
     best = min(laps, key=lambda l: l["lap_ms"]) if any(l["lap_ms"] for l in laps) else laps[0]
     for i, l in enumerate(laps):
         fr = l["fr"]
-        t0 = fr[0]["st"]
+        t0 = l["start"]
         pts = [(X(f["st"], t0), Y(f["speed"])) for f in fr if f["speed"] <= max_v]
         if len(pts) < 2:
             continue
@@ -118,6 +66,8 @@ def draw_speed(laps, title, out_path):
         width = 3 if l is best else 1
         d.line(pts, fill=color, width=width)
         label = f"L{l['n']} {fmt(l['lap_ms'])}" + (" ★" if l is best else "")
+        if not l.get("full", True):
+            label += " (缺开头)"
         d.text((W - 240 + (i % 2) * 0, 55 + i * 22), label, font=f11, fill=color)
 
     img.save(out_path)
@@ -195,14 +145,15 @@ def corners_of(lap):
 
 def main():
     here = os.environ.get("SIM_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
-    pattern = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "f1data", "frames_*.jsonl")
-    files = [f for f in glob.glob(pattern) if os.path.getsize(f) > 100000]
-    files.sort(key=os.path.getsize)
+    # 数据就落在 <数据目录>/frames_*.jsonl，别再往下找 f1data 那一层（旧目录结构，早没了）
+    pattern = sys.argv[1] if len(sys.argv) > 1 else os.path.join(here, "frames_*.jsonl")
+    files = [f for f in glob.glob(pattern) if os.path.getsize(f) > 20000]
     if not files:
-        print("没找到数据")
+        print(f"没找到数据（找的是 {pattern}）")
         return 1
-    path = files[-1]
-    frames, laps, sess = load(path)
+    # 按修改时间取最新一份，不是按体积
+    path = max(files, key=os.path.getmtime)
+    frames, laps, sess, flashbacks = load(path)
     laps_out = cut_laps(frames, laps)
     if not laps_out:
         print("切不出完整圈")
@@ -225,6 +176,8 @@ def main():
     open(md, "w", encoding="utf-8").write("\n".join(lines) + "\n")
 
     print("圈数:", len(laps_out), "最快:", fmt(best["lap_ms"]))
+    if flashbacks:
+        print(f"回退: {len(flashbacks)} 次，已按最终时间线去重")
     print("图1:", p1)
     print("图2:", p2)
     print("弯道:", len(cs), "→", md)

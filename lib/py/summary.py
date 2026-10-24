@@ -11,6 +11,8 @@ import json
 import os
 import sys
 
+from laps import cut_laps, fmt, load
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 HERE = os.environ.get("SIM_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
@@ -28,53 +30,7 @@ CORNER_NAMES = {  # 按出现顺序给 Silverstone 的弯起个名字（仅用�
 }
 
 
-def fmt(ms):
-    if not ms:
-        return "-"
-    m, rem = divmod(int(ms), 60000)
-    s, msec = divmod(rem, 1000)
-    return f"{m}:{s:02d}.{msec:03d}"
-
-
-def load(path):
-    frames, laps, sess = [], [], {}
-    for line in open(path, encoding="utf-8"):
-        try:
-            r = json.loads(line)
-        except ValueError:
-            continue
-        if r.get("id") == 6:
-            frames.append(r)
-        elif r.get("id") == 2:
-            laps.append(r)
-        elif r.get("id") == 1 and not sess:
-            sess = r
-    return frames, laps, sess
-
-
-def cut_laps(frames, laps):
-    """用 lastLap 变化切圈：每次 lastLap 变化（或同值但时间间隔足够）= 一圈跑完。"""
-    events, seen, last_st = [], None, None
-    for r in laps:
-        v = r.get("lastLap", 0)
-        if not v:
-            continue
-        new_lap = v != seen
-        if not new_lap and last_st is not None and r["st"] - last_st > (v / 1000.0) * 0.8:
-            new_lap = True
-        if new_lap:
-            events.append({"end": r["st"], "lap": v})
-            seen = v
-        last_st = r["st"]
-    out = []
-    for ev in events:
-        a = ev["end"] - ev["lap"] / 1000.0
-        fr = [f for f in frames if a <= f["st"] <= ev["end"]]
-        if not (1500 <= len(fr) <= 2350):
-            continue
-        out.append({"n": len(out) + 1, "lap_ms": ev["lap"], "fr": fr,
-                    "key": f"{ev['lap']}_{round(ev['end'])}"})
-    return out
+# load / cut_laps / fmt 都在 laps.py —— 和 plot.py 共用一套切圈口径，别再各写一份。
 
 
 def stats(fr):
@@ -139,15 +95,17 @@ def corners(fr):
 
 
 def main():
-    files = [f for f in glob.glob(os.path.join(HERE, "frames_*.jsonl")) if os.path.getsize(f) > 100000]
-    files += [f for f in glob.glob(os.path.join(HERE, "allcars_*.jsonl")) if os.path.getsize(f) > 100000]
+    # 只读 frames_*.jsonl（标准帧）。allcars_*.jsonl 是全车缩写格式，字段名对不上，
+    # 硬塞进来只会让 load() 读出空列表然后报「还没跑出完整圈」。
+    files = [f for f in glob.glob(os.path.join(HERE, "frames_*.jsonl")) if os.path.getsize(f) > 20000]
     if len(sys.argv) > 1:
         files = [sys.argv[1]]
     if not files:
         print("没有可分析的数据")
         return 1
-    path = max(files, key=os.path.getsize)
-    frames, laps, sess = load(path)
+    # 按修改时间取最新一份 —— 按体积取会让新采的短数据被旧的大文件压住
+    path = max(files, key=os.path.getmtime)
+    frames, laps, sess, flashbacks = load(path)
     all_laps = cut_laps(frames, laps)
     if not all_laps:
         print("这轮还没跑出完整圈（或数据太短）")
@@ -171,6 +129,10 @@ def main():
     best_cor = corners(best["fr"])
 
     lines = [f"[F1 {track}] 已有 {len(all_laps)} 圈，最快 {fmt(best['lap_ms'])}"]
+    if flashbacks:
+        total = sum(f["rewind"] for f in flashbacks)
+        lines.append(f"（用了 {len(flashbacks)} 次回退，共倒退 {total:.1f}s —— 已按最终时间线去重，"
+                     f"被回退覆盖的旧数据不算）")
     if not new_laps:
         lines.append("没有新圈（数据没变）")
     for l in new_laps:
