@@ -1,0 +1,26 @@
+# 依赖
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+
+# 采集数据与产出（不要提交）
+f1data/
+plots/
+*.jsonl
+*.bin
+*.log
+state.json
+state_summary.json
+settings.json
+laps_*.csv
+summary_full_*.md
+
+# 打包产物
+*.tgz
+*.zip
+
+# 系统
+.DS_Store
+Thumbs.db
