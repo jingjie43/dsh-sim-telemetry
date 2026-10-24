@@ -185,7 +185,7 @@ export function apply(ctx, config = {}) {
       description: "分析已采集的 赛车遥测，只返回省 token 的结论：圈速、与最佳的差、最慢的弯、该改什么。",
       parameters: {},
       async execute() {
-        const r = await runPython("telemetry_summary.py", [], 180000);
+        const r = await runPython("summary.py", [], 180000);
         const out = r.stdout.split("\n").slice(0, 40).join("\n");
         return out || (r.stderr ? `失败：${r.stderr}` : "没有可分析的数据。");
       },
@@ -196,7 +196,7 @@ export function apply(ctx, config = {}) {
       description: "生成 赛车遥测速度曲线图与油门刹车图，返回 PNG 路径。",
       parameters: {},
       async execute() {
-        const r = await runPython("telemetry_plot.py", [], 240000);
+        const r = await runPython("plot.py", [], 240000);
         const lines = r.stdout.split("\n").filter((l) => l.includes(":") || l.includes("圈数"));
         return lines.slice(0, 8).join("\n") || r.stderr || "没有数据可画。";
       },

@@ -105,25 +105,36 @@ def segments(fr, nseg=NSEG):
 
 
 def corners(fr):
+    """弯道识别：刹车点锚定 + 速度谷补充（连续弯不再被合并成一个）。"""
     n = len(fr)
-    win = 10
-    cand = []
-    for i in range(win, n - win):
-        w = [fr[j]["speed"] for j in range(i - win, i + win + 1)]
-        s = fr[i]["speed"]
-        if s > min(w):
-            continue
-        if max(w) - s < 8:
-            continue
-        cand.append(i)
+    t0 = fr[0]["st"]
+    # 1) 刹车锚点：brake>=30% 的连续段起点
+    anchors, in_brake = [], False
+    for i, f in enumerate(fr):
+        if f["brake"] >= 30 and not in_brake:
+            anchors.append(i)
+            in_brake = True
+        elif f["brake"] < 10:
+            in_brake = False
+    # 2) 每个刹车锚点后 4 秒内找速度最低点 = apex
+    apexes = []
+    for a in anchors:
+        end = min(n - 1, a + 80)
+        apexes.append(min(range(a, end + 1), key=lambda i: fr[i]["speed"]))
+    # 3) 补充无刹车弯（松油过弯）：窗口内速度明显下凹
+    for i in range(5, n - 5):
+        window = [fr[j]["speed"] for j in range(i - 5, i + 6)]
+        if fr[i]["speed"] <= min(window) and max(window) - fr[i]["speed"] >= 20:
+            if all(abs(i - a) > 25 for a in apexes):
+                apexes.append(i)
+    # 4) 合并 1.2 秒内相邻（同一个弯），取更低速的点
     merged = []
-    for i in cand:
-        if merged and i - merged[-1] <= 25:
+    for i in sorted(set(apexes)):
+        if merged and fr[i]["st"] - fr[merged[-1]]["st"] < 1.2:
             if fr[i]["speed"] < fr[merged[-1]]["speed"]:
                 merged[-1] = i
         else:
             merged.append(i)
-    t0 = fr[0]["st"]
     return [(round(fr[i]["st"] - t0, 2), fr[i]["speed"]) for i in merged]
 
 
@@ -169,7 +180,7 @@ def main():
         cor = corners(l["fr"])
         cor_pairs = []
         for i, (bt, bv) in enumerate(best_cor):
-            nm = names[i] if i < len(names) else f"弯{i + 1}"
+            nm = f"弯{i + 1}"
             cand = [(abs(t - bt), v) for t, v in cor if abs(t - bt) < 2.0]
             if not cand:
                 continue
