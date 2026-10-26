@@ -1,6 +1,6 @@
 {
   "name": "dsh-sim-telemetry",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "F1 25 UDP 遥测采集与分析（DSH 插件）",
   "type": "module",
   "main": "index.js",
@@ -9,6 +9,7 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
+    "CHANGELOG.md",
     "client.js"
   ],
   "engines": {

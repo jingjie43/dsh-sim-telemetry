@@ -10,7 +10,7 @@
  * 原则：加载阶段绝不抛错。所有异常写进 <data>/debug.log，最多次功能缺失，不会把宿主带崩。
  */
 import { spawn, execFile } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -113,8 +113,41 @@ function startProbe() {
   });
 }
 
-function currentPython() {
-  if (!probe.done) startProbe();
+/** 同步读取探测结果（不触发探测），给不需要等待的场景用 */
+function pythonInfo() {
+  return probe.info && probe.info.pythonOk ? probe.info : null;
+}
+
+/**
+ * 等 Python 探测完成再返回结果。
+ *
+ * ⚠️ 以前是 currentPython()：`if (!probe.done) startProbe(); return probe.info && ...`
+ * —— 探测是异步的，函数却立刻读 `probe.info`，**第一次调用必然拿到 null**，
+ * 表现就是重启后第一次 `telemetry_start` 报「没有找到 Python 3.10+」，再点一次才好。
+ * 改成 async 等待，第一次就能成功。
+ */
+async function ensurePython() {
+  if (!probe.done) {
+    if (!probe.running) {
+      probe.running = true;
+      try {
+        const info = await detectPythonAsync();
+        probe = { running: false, done: true, info };
+        dbg(`python 探测：${info.pythonOk ? info.exe + " " + info.version : "未找到 3.10+"}`);
+      } catch (err) {
+        probe = { running: false, done: true, info: null };
+        dbg(`python 探测异常：${(err && err.message) || err}`);
+      }
+    } else {
+      // 已有探测在进行，等它完成（最多 20 秒）
+      await new Promise((resolve) => {
+        const t = setInterval(() => {
+          if (probe.done) { clearInterval(t); resolve(); }
+        }, 150);
+        setTimeout(() => { clearInterval(t); resolve(); }, 20000);
+      });
+    }
+  }
   return probe.info && probe.info.pythonOk ? probe.info : null;
 }
 
@@ -130,10 +163,10 @@ function pyEnv() {
   return { ...process.env, SIM_DATA_DIR: dataDir(), SIM_UDP_PORT: String(cfg.udpPort || 20777), PYTHONIOENCODING: "utf-8" };
 }
 
-function runPython(script, args = [], timeoutMs = 180000) {
+async function runPython(script, args = [], timeoutMs = 180000) {
+  const info = await ensurePython();
+  if (!info) return { ok: false, stdout: "", stderr: "没有找到 Python 3.10+，请到「设置 → 赛车遥测」点一键安装。" };
   return new Promise((resolve) => {
-    const info = currentPython();
-    if (!info) { resolve({ ok: false, stdout: "", stderr: "没有找到 Python 3.10+，请到「设置 → 赛车遥测」点一键安装。" }); return; }
     try {
       execFile(info.exe, [...info.args, join(PY_DIR, script), ...args], {
         env: pyEnv(), timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, windowsHide: true,
@@ -146,23 +179,37 @@ function runPython(script, args = [], timeoutMs = 180000) {
   });
 }
 
-function startCollect(durationSec) {
+async function startCollect(durationSec) {
   if (state.proc) return { ok: false, error: "已经在采集中" };
   if (cfg.enabled === false) return { ok: false, error: "插件功能已关闭（设置页里打开开关）" };
-  const info = currentPython();
+  const info = await ensurePython();
   if (!info) return { ok: false, error: "没有找到 Python 3.10+，先到设置页点「一键安装 Python」" };
   try {
     const dur = Math.max(30, Math.min(3600, Number(durationSec) || cfg.durationSec || 900));
+    // ⚠️ 采集器必须 **detached 启动 + unref**，否则会被宿主回收（2026-10-26 踩到，很隐蔽）：
+    //    以前用普通 spawn，子进程挂在 DSH 的进程树上。会话一空闲（工具调用结束后几分钟没人操作），
+    //    宿主回收进程树 → 采集器被杀。表现是「启动了、文件建了 0 字节、日志不更新、端口后来空了」，
+    //    而且因为 stdio 是 pipe，错误只留在内存里，完全查不到原因。
+    //    修法三件事：
+    //      1. detached: true + child.unref() —— 独立进程组，宿主管不到它
+    //      2. stdio 直接 ignore，日志路径用 SIM_LOG 传给 Python，由它自己写文件
+    //         （pipe 会在宿主退出时断掉、裸 fd 在 Windows 上不生效、未打开的 WriteStream 又会被 spawn 拒绝，
+    //          三种都不行 —— 2026-10-26 三种都试过，最后走「Python 自己写日志」这条路才稳）
+    //      3. 监听 exit 记下退出码 —— 崩溃能定位
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const logPath = join(dataDir(), `collect_${stamp}.log`);
     const child = spawn(info.exe, [...info.args, join(PY_DIR, "collect_f1.py"), String(dur), String(cfg.autoReportLaps || 0)], {
-      env: pyEnv(), windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...pyEnv(), SIM_LOG: logPath }, windowsHide: true, detached: true, stdio: "ignore",
     });
+    child.unref();
     state.proc = child;
+    state.logPath = logPath;
     state.startedAt = Date.now();
-    let lastLines = "";
-    child.stdout.on("data", (d) => { lastLines = (lastLines + d).slice(-2000); });
-    child.stderr.on("data", (d) => { lastLines = (lastLines + d).slice(-2000); });
-    child.on("exit", () => { state.proc = null; });
-    return { ok: true, pid: child.pid, durationSec: dur, udpPort: cfg.udpPort || 20777 };
+    child.on("exit", (code) => {
+      state.proc = null;
+      dbg(`采集进程退出 code=${code} log=${logPath}`);
+    });
+    return { ok: true, pid: child.pid, durationSec: dur, udpPort: cfg.udpPort || 20777, logFile: logPath };
   } catch (err) {
     return { ok: false, error: String((err && err.message) || err) };
   }
@@ -253,7 +300,7 @@ function installPython() {
 /** 装画图要用的 Pillow */
 function installDeps() {
   if (state.deps && !state.deps.done) return { ok: false, error: "已经在装了" };
-  const info = currentPython();
+  const info = pythonInfo();
   if (!info) return { ok: false, error: "先装 Python 3.10+ 再装依赖" };
   state.deps = { startedAt: Date.now(), step: "安装 Pillow…", done: false, ok: null };
   execFileAsync(info.exe, [...info.args, "-m", "pip", "install", "--upgrade", "pillow"], { timeout: 10 * 60 * 1000 })
@@ -305,7 +352,7 @@ export function apply(ctx, config = {}) {
       description: "开始记录 F1 25 的 UDP 遥测（默认端口 20777，可在设置里改）。后台跑，跑满时长或 telemetry_stop 停止。不跑车时别开。",
       parameters: { durationSec: { type: "number", description: "最长秒数，默认 900" } },
       async execute(args) {
-        const r = startCollect(args.durationSec);
+        const r = await startCollect(args.durationSec);
         return r.ok ? `已开始采集（PID ${r.pid}，最长 ${r.durationSec}s，端口 ${r.udpPort}）` : r.error;
       },
     });
@@ -392,7 +439,7 @@ export function apply(ctx, config = {}) {
               if (req.method === "POST" && path === "/api/sim-telemetry/install-deps") return send(200, installDeps());
               if (req.method === "POST" && path === "/api/sim-telemetry/start") {
                 const b = await body();
-                const r = startCollect(b.durationSec);
+                const r = await startCollect(b.durationSec);
                 return send(200, { ...r, ...status() });
               }
               if (req.method === "POST" && path === "/api/sim-telemetry/stop") {
