@@ -207,6 +207,7 @@ window.__ModuleLoader__.load({
           h('span', { style: S.note }, collecting ? `采集中：已 ${st.collectingSeconds} 秒（端口 ${st.udpPort}）` : '空闲')),
         h('div', { style: S.note }, '数据目录：' + (st ? st.dataDir : '—')),
         h('div', { style: S.note }, '提示：也可以在对话里让大肥鱼用 telemetry_start / telemetry_summary / telemetry_plot 这几个工具。'),
+        h('div', { style: S.note }, '作者：B站「静戒的大肥鱼」· UID 544228946'),
       )
     }
 
