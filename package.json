@@ -15,6 +15,9 @@
   "engines": {
     "node": ">=22"
   },
+  "scripts": {
+    "prepare": "node -e \"console.log('dsh-sim-telemetry: plain JavaScript plugin, no build step needed')\""
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
