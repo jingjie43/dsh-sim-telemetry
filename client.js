@@ -177,6 +177,27 @@ window.__ModuleLoader__.load({
           }),
           h('span', { style: S.note }, '默认 20777；游戏里改过端口就同步改这里')),
         h('div', { style: S.row },
+          h('span', { style: S.label }, '图片保存位置'),
+          h('select', {
+            style: S.num,
+            value: (() => { const m = st && st.imageDir ? st.imageDir : 'both'; return ['both', 'data', 'desktop'].includes(m) ? m : 'custom' })(),
+            onChange: (e) => act(() => jpost('/settings', { imageDir: e.target.value })),
+          },
+            h('option', { value: 'both' }, '数据目录 + 桌面'),
+            h('option', { value: 'data' }, '仅数据目录'),
+            h('option', { value: 'desktop' }, '仅桌面'),
+            h('option', { value: 'custom', disabled: true }, '自定义（见下行）'),
+          )),
+        h('div', { style: S.row },
+          h('span', { style: S.label }, '自定义目录'),
+          h('input', {
+            type: 'text', style: S.text,
+            placeholder: '例如 D:\\F1图（留空 = 用上面的选项）',
+            defaultValue: (() => { const m = st && st.imageDir ? st.imageDir : 'both'; return ['both', 'data', 'desktop'].includes(m) ? '' : m })(),
+            onBlur: (e) => act(() => jpost('/settings', { imageDir: String(e.target.value || '').trim() || 'both' })),
+          }),
+          h('span', { style: S.note }, '填绝对路径；留空恢复默认')),
+        h('div', { style: S.row },
           h('span', { style: S.label }, '默认记录时长'),
           h('input', {
             type: 'number', min: 1, max: 60, style: S.num,
@@ -246,7 +267,7 @@ window.__ModuleLoader__.load({
         setBusy(true)
         try {
           const r = await jpost('/gen', { ts: selected[0], type })
-          setMsg(r.ok ? '已生成（文件在数据目录 plots/ 和桌面）：' + String(r.output || '').replace(/\n/g, ' | ').slice(0, 400) : '失败: ' + (r.error || ''))
+          setMsg(r.ok ? '已生成：' + (r.desk && r.desk.length ? r.desk.join('  ') : (r.output || '')) : '失败: ' + (r.error || ''))
         } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
       }
       const doExport = async () => {

@@ -1,19 +1,43 @@
 # Changelog
 
-## 0.2.5 — 开发中
+## 0.2.5 — 2026-11-03
+
+这一版重点：**第三条赛道（Spa）+ 采集数据管理**——跑过的圈不再是一堆散落文件，而是能在设置页里挑出来对比、出图、打包、删除。
 
 ### 新增
-- **历史记录管理**（设置页）：按赛道/时间/圈数列出所有采集，支持勾选多份 → 对比速度曲线 / 对比逐弯改进表 / 打包 zip / 删除（删除需二次确认）
-- **多份采集对比图**：`compare.py` 生成速度曲线叠加图（按赛道距离对齐）和逐弯改进表并排图
-- **单份采集一键出图**：历史记录里选中 1 份后，可生成 6 种图——速度曲线 / 油门刹车 / 轨迹诊断（弯位编号 + 失误标注）/ 赛道图（官方弯名）/ 弯位表 / 逐弯细节对比
-- **斯帕（Spa-Francorchamps）赛道校准**：19 弯 alidated + 官方弯名（La Source / Eau Rouge ×2 / Raidillon /
-  Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve / Pouhon ×2 / Fagnes ×2 / Campus /
-  Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2），三份实跑数据三取二
-- **设置页显示作者信息**：面板底部加一行「作者：B站「静戒的大肥鱼」· UID 544228946」
+- **斯帕（Spa-Francorchamps）赛道校准**：19 弯 `validated` + 官方弯名
+  （La Source / Eau Rouge ×2 / Raidillon / Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve /
+  Pouhon ×2 / Fagnes ×2 / Campus / Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2），
+  三份实跑数据三取二，每弯位置差 ≤40 米
+- **历史记录管理**（设置页）：按赛道 / 时间 / 圈数分组列出所有采集，显示每圈时间；
+  可勾选多份对比、打包 zip、删除（删除需二次确认）
+- **多份采集对比图**：速度曲线叠加（按赛道距离对齐）+ 逐弯改进表并排
+- **单份采集一键出图**：选中 1 份后生成 6 种图——速度曲线 / 油门刹车 / 轨迹诊断（弯位编号 + 失误标注）/
+  赛道图（官方弯名）/ 弯位表 / 逐弯细节对比
+- **逐弯细节对比图**：每个弯一个小面板，三圈速度曲线叠加 + apex 圆点 + 刹车点 + 极差标注
+- **赛道图 + 弯位表**（通用生成）：左轨迹 + 弯号、右官方弯名图例；弯位表含入口 / apex / 出口 /
+  方向 / 半径 / apex 速度
+- **图片保存位置可配**（设置页）：数据目录 + 桌面（默认）/ 仅数据目录 / 仅桌面 / 自定义目录，
+  生成图后按设置复制，提示会给出完整文件路径
+- **设置页显示作者信息**：面板底部「作者：B站「静戒的大肥鱼」· UID 544228946」
+
+### 改进
+- 图生成脚本（`make_track_map.py` / `make_corner_detail.py`）进入 `lib/py` 随 npm 包发布，
+  插件内可直接调用（支持 `auto` 自动识别赛道）
+- 图输出同时写到数据目录 `plots/` 和桌面，方便用户找到
+- 历史记录列表读取圈速时补了 BOM 兼容（之前圈速列是空的）
 
 ### 修复
-- **赛道长度 bug**：DEFAULT_LEN=5890（银石长度）被所有赛道共用，Spa 7007 米后段（Blanchimont/Bus Stop）
-  被整段丢弃、弯位识别不出来；现在按 Session 包的 trackLen 自动检测实际赛道长度（engineer.detect_track_len）
+- **赛道长度 bug（重要）**：`DEFAULT_LEN=5890`（银石长度）被所有赛道共用，Spa 7007 米的后段
+  （Blanchimont / Bus Stop）被整段丢弃、弯位识别不出来；现在按 Session 包的 `trackLen`
+  自动检测实际赛道长度（`engineer.detect_track_len`），蒙扎 / 银石不受影响
+- `plot.py` 赛道名错误：内置的老 trackId 表把 10 写成 Zandvoort（实际是 Spa），
+  现在优先查 `tracks.py` 的校准表
+
+### 安装
+- npm 包名：`dsh plugin --profile web add dsh-sim-telemetry`
+- 本地 tgz：下载 Release 的 `dsh-sim-telemetry-0.2.5.tgz` 后 `add ./dsh-sim-telemetry-0.2.5.tgz`
+- 本地目录：`add file:<源码目录>`（开发者用；GitHub 源码方式不推荐，需 allowBuilds + npm）
 
 ## 0.2.4 — 2026-11-03
 

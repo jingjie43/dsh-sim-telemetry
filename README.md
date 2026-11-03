@@ -58,9 +58,9 @@
 
 ## 安装
 
-> 三种方式都行，**推荐 npm 一条命令**（最简单、免构建授权、升级也方便）。
+> 三种输入都支持：**包名**（npm）、**本地 tgz 安装包**、**本地目录路径**。推荐用包名。
 
-### 方式一：npm（推荐）
+### 方式一：npm 包名（推荐）
 
 ```bash
 dsh plugin --profile web add dsh-sim-telemetry
@@ -72,16 +72,26 @@ dsh plugin --profile web add dsh-sim-telemetry
 
 ### 方式二：Release 安装包（离线 / 内网用）
 
-1. 打开 [Releases](https://github.com/jingjie43/dsh-sim-telemetry/releases)，下载最新的 `dsh-sim-telemetry-0.2.4.tgz`
+1. 打开 [Releases](https://github.com/jingjie43/dsh-sim-telemetry/releases)，下载最新的 `dsh-sim-telemetry-0.2.5.tgz`
 2. 安装：
 
 ```bash
-dsh plugin --profile web add ./dsh-sim-telemetry-0.2.4.tgz
+dsh plugin --profile web add ./dsh-sim-telemetry-0.2.5.tgz
 ```
 
 3. 重启 DSH
 
-### 方式三：GitHub 源码
+### 方式三：本地目录路径（开发者）
+
+源码已经在本地（clone 或解压）时，直接指向目录：
+
+```bash
+dsh plugin --profile web add file:C:\你的路径\dsh-sim-telemetry
+```
+
+Linux / macOS 用 `file:/path/to/dsh-sim-telemetry`。实测可用，不需要任何授权。
+
+### 方式四：GitHub 源码（不推荐，仅开发者）
 
 在 DSH「设置 → 插件」里填仓库地址：
 
@@ -89,14 +99,11 @@ dsh plugin --profile web add ./dsh-sim-telemetry-0.2.4.tgz
 https://github.com/jingjie43/dsh-sim-telemetry
 ```
 
-⚠️ **从 GitHub 源码安装需要允许构建脚本**。第一次装失败的话，在 profile 的 `pnpm-workspace.yaml` 里加：
+⚠️ **这条路有两个坑**：
+1. pnpm 默认拒绝执行 git 来源包的构建脚本，要手动加 `allowBuilds` 白名单
+2. 即使加了白名单，pnpm 还要跑 `npm install` 准备源码 —— 而 DSH 只内置 node + pnpm、**没有 npm**，大概率失败
 
-```yaml
-allowBuilds:
-  dsh-sim-telemetry: true
-```
-
-再装一次即可。**如果折腾两次还装不上，直接用方式一（npm）或方式二（安装包）**，那两个都不需要授权。
+**普通用户别走这条**，用方式一 / 二 / 三。
 
 ### 环境依赖
 - **Python 3.10+**（3.11 / 3.12 / 3.13 都行）

@@ -10,7 +10,7 @@
  * 原则：加载阶段绝不抛错。所有异常写进 <data>/debug.log，最多次功能缺失，不会把宿主带崩。
  */
 import { spawn, execFile } from "node:child_process";
-import { appendFileSync, closeSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { appendFileSync, closeSync, createWriteStream, copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -20,7 +20,7 @@ export const name = "sim-telemetry";
 export const inject = ["tools", "webServer"];
 
 const PY_DIR = fileURLToPath(new URL("./lib/py/", import.meta.url));
-const DEFAULTS = { enabled: true, durationSec: 900, autoReportLaps: 0, pythonPath: "", udpPort: 20777 };
+const DEFAULTS = { enabled: true, durationSec: 900, autoReportLaps: 0, pythonPath: "", udpPort: 20777, imageDir: "both" };
 const MIN_MINOR = 10; // 需要 Python 3.10+
 const PY_INSTALL_VERSION = "3.12.10";
 const PY_INSTALL_URL = `https://www.python.org/ftp/python/${PY_INSTALL_VERSION}/python-${PY_INSTALL_VERSION}-amd64.exe`;
@@ -234,6 +234,7 @@ function status() {
     durationSec: cfg.durationSec || 900,
     autoReportLaps: cfg.autoReportLaps || 0,
     udpPort: cfg.udpPort || 20777,
+    imageDir: cfg.imageDir || "both",
     collecting: Boolean(state.proc),
     collectingSeconds: state.proc ? Math.round((Date.now() - state.startedAt) / 1000) : 0,
     dataDir: dataDir(),
@@ -428,10 +429,11 @@ export function apply(ctx, config = {}) {
                   const p = Number(b.udpPort);
                   if (p >= 1 && p <= 65535) cfg.udpPort = Math.floor(p);
                 }
+                if (typeof b.imageDir === "string") cfg.imageDir = b.imageDir.trim() || "both";
 
                 writeSettings({
                   enabled: cfg.enabled, durationSec: cfg.durationSec, autoReportLaps: cfg.autoReportLaps,
-                  pythonPath: cfg.pythonPath || "", udpPort: cfg.udpPort || 20777,
+                  pythonPath: cfg.pythonPath || "", udpPort: cfg.udpPort || 20777, imageDir: cfg.imageDir || "both",
                 });
                 return send(200, status());
               }
@@ -497,8 +499,37 @@ export function apply(ctx, config = {}) {
                 };
                 const job = JOBS[type];
                 if (!job) return send(400, { ok: false, error: "未知图类型: " + type });
+                const startedAt = Date.now();
                 const out = await runPython(job[0], job[1], job[2]);
-                return send(200, { ok: out.ok, type, output: out.stdout.slice(-800), error: out.stderr });
+                // 把本次新生成的图统一复制到桌面，用户不用记 plots/ 这种路径
+                const copied = [];
+                try {
+                  const plots = join(dataDir(), "plots");
+                  const mode = String(cfg.imageDir || "both");
+                  const targets = [];
+                  if (mode === "both" || mode === "desktop") targets.push(join(homedir(), "Desktop"));
+                  else if (mode !== "data" && mode.length > 1) {
+                    try { mkdirSync(mode, { recursive: true }); targets.push(mode); } catch { /* 忽略 */ }
+                  }
+                  if (existsSync(plots) && targets.length) {
+                    for (const f of readdirSync(plots)) {
+                      if (!f.endsWith(".png")) continue;
+                      const src = join(plots, f);
+                      let mtime = 0;
+                      try { mtime = statSync(src).mtimeMs; } catch { continue; }
+                      if (mtime < startedAt - 3000) continue;
+                      for (const base of targets) {
+                        const dst = join(base, f);
+                        try { copyFileSync(src, dst); copied.push(dst); } catch { /* 忽略 */ }
+                      }
+                    }
+                  }
+                } catch { /* 忽略 */ }
+                return send(200, {
+                  ok: out.ok, type, desk: copied,
+                  output: (out.stdout.slice(-600) + (copied.length ? "\n→ " + copied.join("\n→ ") : "")),
+                  error: out.stderr,
+                });
               }
               return send(404, { ok: false, error: `unknown ${req.method} ${path}` });
             } catch (err) {
