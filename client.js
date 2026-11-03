@@ -241,6 +241,14 @@ window.__ModuleLoader__.load({
           setMsg(r.ok ? '对比图已生成：' + r.png : '生成失败: ' + (r.error || ''))
         } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
       }
+      const doGen = async (type) => {
+        if (selected.length !== 1) { setMsg('先勾选 1 份记录'); return }
+        setBusy(true)
+        try {
+          const r = await jpost('/gen', { ts: selected[0], type })
+          setMsg(r.ok ? '已生成（文件在数据目录 plots/ 和桌面）：' + String(r.output || '').replace(/\n/g, ' | ').slice(0, 400) : '失败: ' + (r.error || ''))
+        } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
+      }
       const doExport = async () => {
         if (!selected.length) { setMsg('先勾选记录'); return }
         setBusy(true)
@@ -293,6 +301,15 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', style: S.btn, onClick: doExport, disabled: busy }, '打包 zip'),
           h('button', { type: 'button', style: S.btn, onClick: doDelete, disabled: busy }, '删除选中'),
         ),
+        selected.length === 1 ? h('div', { style: { ...S.row, marginTop: 6, flexWrap: 'wrap' } },
+          h('span', { style: S.note }, '单份图：'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('speed'), disabled: busy }, '速度曲线'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('pedals'), disabled: busy }, '油门刹车'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('track'), disabled: busy }, '轨迹诊断'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('trackmap'), disabled: busy }, '赛道图'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('corner-table'), disabled: busy }, '弯位表'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('corners-detail'), disabled: busy }, '逐弯细节'),
+        ) : null,
         msg ? h('div', { style: S.note }, msg) : null,
       )
     }

@@ -22,6 +22,8 @@ import tracks as T    # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA = os.environ.get("SIM_DATA_DIR") or os.path.expanduser(r"~\.dsh\sim-telemetry")
+PLOTS = os.path.join(DATA, "plots")
 DOCS = os.path.join(ROOT, "docs")
 DESK = os.path.join(os.path.expanduser("~"), "Desktop")
 
@@ -131,6 +133,18 @@ def main():
         return 1
     key = sys.argv[1]
     path = sys.argv[2]
+
+    if key == "auto" and len(sys.argv) > 2:
+        import json as _json
+        try:
+            with open(sys.argv[2], encoding="utf-8") as _f:
+                for _line in _f:
+                    _r = _json.loads(_line)
+                    if _r.get("id") == 1:
+                        key = T.BY_TRACK_ID.get(_r.get("trackId"))
+                        break
+        except Exception:
+            key = None
     track = T.TRACKS.get(key)
     if not track:
         print("没有这条赛道:", key)
@@ -172,7 +186,7 @@ def main():
                    None, None, laps, c["entry_m"], c["exit_m"], best_ms)
 
     outs = []
-    for base in (DESK, DOCS):
+    for base in (PLOTS, DESK, DOCS):
         if os.path.isdir(base):
             p = os.path.join(base, "%s-corners-detail.png" % key)
             img.save(p)

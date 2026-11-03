@@ -480,6 +480,26 @@ export function apply(ctx, config = {}) {
                 const out = await runPython("compare.py", [type, outPath, ...files], 240000);
                 return send(200, { ok: out.ok, png: outPath, output: out.stdout, error: out.stderr });
               }
+              // ---- 单份采集生成图（速度/油门/轨迹/赛道图/弯位表/逐弯细节）----
+              if (req.method === "POST" && path === "/api/sim-telemetry/gen") {
+                const b = await body();
+                const ts = String(b.ts || "");
+                if (!/^\d{8}_\d{6}$/.test(ts)) return send(400, { ok: false, error: "缺少记录" });
+                const type = String(b.type || "");
+                const frames = join(dataDir(), "frames_" + ts + ".jsonl");
+                const JOBS = {
+                  speed: ["plot.py", [frames], 120000],
+                  pedals: ["plot.py", [frames], 120000],
+                  track: ["trackmap.py", [frames], 90000],
+                  trackmap: ["make_track_map.py", ["auto", frames], 180000],
+                  "corner-table": ["make_track_map.py", ["auto", frames], 180000],
+                  "corners-detail": ["make_corner_detail.py", ["auto", frames], 180000],
+                };
+                const job = JOBS[type];
+                if (!job) return send(400, { ok: false, error: "未知图类型: " + type });
+                const out = await runPython(job[0], job[1], job[2]);
+                return send(200, { ok: out.ok, type, output: out.stdout.slice(-800), error: out.stderr });
+              }
               return send(404, { ok: false, error: `unknown ${req.method} ${path}` });
             } catch (err) {
               return send(500, { ok: false, error: String((err && err.message) || err) });

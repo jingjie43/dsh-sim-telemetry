@@ -5,6 +5,7 @@
 ### 新增
 - **历史记录管理**（设置页）：按赛道/时间/圈数列出所有采集，支持勾选多份 → 对比速度曲线 / 对比逐弯改进表 / 打包 zip / 删除（删除需二次确认）
 - **多份采集对比图**：`compare.py` 生成速度曲线叠加图（按赛道距离对齐）和逐弯改进表并排图
+- **单份采集一键出图**：历史记录里选中 1 份后，可生成 6 种图——速度曲线 / 油门刹车 / 轨迹诊断（弯位编号 + 失误标注）/ 赛道图（官方弯名）/ 弯位表 / 逐弯细节对比
 - **斯帕（Spa-Francorchamps）赛道校准**：19 弯 alidated + 官方弯名（La Source / Eau Rouge ×2 / Raidillon /
   Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve / Pouhon ×2 / Fagnes ×2 / Campus /
   Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2），三份实跑数据三取二

@@ -27,6 +27,7 @@ import tracks as T    # noqa: E402
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 DATA = os.environ.get("SIM_DATA_DIR") or os.path.expanduser(r"~\.dsh\sim-telemetry")
+PLOTS = os.path.join(DATA, "plots")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs")
 DESK = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -278,7 +279,7 @@ def make_table(track, ax, az, v, nlaps, src):
 
 def save(img, name):
     outs = []
-    for base in (DESK, DOCS):
+    for base in (PLOTS, DESK, DOCS):
         if not os.path.isdir(base):
             continue
         p = os.path.join(base, name)
@@ -289,6 +290,18 @@ def save(img, name):
 
 def main():
     key = sys.argv[1] if len(sys.argv) > 1 else "monza"
+
+    if key == "auto" and len(sys.argv) > 2:
+        import json as _json
+        try:
+            with open(sys.argv[2], encoding="utf-8") as _f:
+                for _line in _f:
+                    _r = _json.loads(_line)
+                    if _r.get("id") == 1:
+                        key = T.BY_TRACK_ID.get(_r.get("trackId"))
+                        break
+        except Exception:
+            key = None
     track = T.TRACKS.get(key)
     if not track:
         print("没有这条赛道:", key, "（可选:", ", ".join(T.TRACKS), "）")
