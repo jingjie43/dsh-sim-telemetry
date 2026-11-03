@@ -88,6 +88,7 @@ def main():
 
     # 逐弯
     rows = r.get("corner_rows") or []
+    names = {i + 1: (c.get("name") or "") for i, c in enumerate(r.get("corners") or [])}
     if rows:
         print(f"\n逐弯（共 {len(rows)} 个弯，apex 速度 km/h；编号见轨迹图）：")
         head = "  第N弯 方向 " + "  ".join(f"L{l['n']:>1}" for l in laps) + "   差距"
@@ -98,7 +99,8 @@ def main():
             spread = (max(ok) - min(ok)) if len(ok) > 1 else 0
             cells = "  ".join(f"{v:>3}" if v else "  -" for v in vals)
             flag = f"  ← 差 {spread}" if spread >= 25 else ""
-            print(f"  {row['no']:>3}   {row['dir']:>2}   {cells}{flag}")
+            nm = names.get(row["no"], "")
+            print(f"  {row['no']:>3}   {row['dir']:>2}   {cells}{flag}" + (f"   {nm}" if nm else ""))
 
     # 建议
     tips = []

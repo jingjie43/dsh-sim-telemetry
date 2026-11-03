@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.2.4 — 开发中（2026-10-28）
+
+这一版重点：**从「一条赛道」走向「第二条赛道」**，并把校准流程工具化。
+
+### 新增
+- **蒙扎（Monza）赛道正式校准 + 官方弯名核对**：`trackId 11` / 5798 米 / 官方 11 弯。
+  三次独立采集交叉验证，状态 `validated`。弯位改用**累计转角法**（`scripts/corners_by_angle.py`）——
+  抓到了曲率峰值法漏掉的 Curva Grande（半径 216 米，曲率低于旧阈值）。
+  弯名按 F1 官方《How every corner at Monza got its name》对上：
+  Prima Variante / Curva Grande / Seconda Variante / Lesmo 1 / Lesmo 2 / Ascari / Parabolica（Alboreto）
+- **报告优先使用校准表分弯**：`engineer.analyse` 现在会先看 `tracks.py` 里有没有 `validated` 的弯位表，
+  有就直接用（不再自己识别）；逐弯表还会显示官方弯名。这样「第 N 弯」和校准表、轨迹图完全一致
+- **`scripts/calibrate_track.py`**：赛道校准工具，跑完一条赛道一条命令生成 `tracks.py` 条目
+  （支持 `--drop-slow` 自动排除暖胎/出场圈）
+- **`scripts/check_data.py`**：数据完整性检查 —— 四类包数量、每圈时间覆盖率、关键字段缺口、
+  回退（flashback）与多车混入、lapDistance 是否覆盖赛道全长
+- **`scripts/probe_peaks.py`**：曲率峰诊断，列出全部候选峰（不加官方弯数约束），用于人工核对弯位
+- **`scripts/make_track_map.py <赛道key>`**：通用赛道图生成 —— 左轨迹 + 弯号、右官方弯名图例 +
+  弯位表（入口/apex/出口/方向/转角/半径/apex 速度），输出到桌面和 docs
+
+### 改进
+- **弯道识别加「长弯合并」**：同号相邻峰如果相距 < 220 米且中间曲率没明显回落，合并成一个长弯
+  —— 解决蒙扎 Parabolica 这种长弯被拆成两个峰的问题
+- **噪声峰过滤**：曲率强度不到全圈最强峰 10% 的峰当走线抖动丢掉
+- **回滚保护**：合并/过滤后如果峰数比官方弯数还少，自动退回未处理的峰 ——
+  银石 18 弯回归通过（之前没有这层保护，银石被误合并成 14 个）
+
+### 修复
+- **银石（Silverstone）校准重建**（2026-10-28 发现旧表不可靠）：
+  旧表用 `detect_corners`「取曲率最强的 18 个峰」凑官方弯数 —— 同一赛道两份数据跑出来
+  **第 6 弯差 740 米、第 8 弯差 870 米**（数据稍有不同就多选/少选一个峰，后面的弯整体错位）。
+  新做法：`scripts/rebuild_silverstone.py` —— 转角法找稳定弯段（三份数据一致）→ 段内平均曲率找 apex →
+  三份数据三取二（差 ≤40 米），18 个弯全部通过；同时补上官方弯名
+  （Abbey / Farm Curve / Village / The Loop / Aintree / Brooklands / Luffield / Woodcote / Copse /
+  Maggotts ×2 / Becketts ×2 / Chapel / Stowe / Vale / Club ×2，来源 F1 官方文章）
+- **摘要里的赛道名错误**：`summary.py` 里有一张凭印象的 trackId 表，把 11 写成 Austin，
+  跑蒙扎时摘要标题显示「Austin 明细」。现在优先查 `tracks.py` 的校准表 + 实测确认表，
+  认不出的赛道显示 `track<id>`（便于用户反馈）
+
 ## 0.2.3 — 2026-10-25
 
 这一版把「遥测采集」升级成「比赛工程师」：不只报圈速，还能说清**哪个弯慢了、为什么慢、该往哪个方向改**。

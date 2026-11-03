@@ -22,6 +22,11 @@ SPIN_DV = 80          # spin 判据：速度在极短距离内掉这么多（km/
                       # 40 太敏感 —— 正常重刹也能掉 40~50，会被误报成 spin（2026-10-26 实测：
                       # 3 圈里 4 处「spin」其实全是刹车，真正的 spin 是 113→8 掉了 105）
 SPIN_G_DROP = 1.0     # spin 判据：横向G 掉幅
+# 长弯合并（2026-10-28 加）：蒙扎 Parabolica 是一个长右弯，但曲率在弯里会鼓两个包，
+# 之前被当成两个弯（第 10/11 弯都是 R）。判据：同号 + 间距小 + 中间曲率没回落。
+LONG_MERGE_M = 220.0  # 同号两峰相距小于这个距离，才可能是同一个长弯
+LONG_KEEP = 0.45      # 中间最低曲率 / 两峰较弱值 ≥ 这个比例 = 没回落，合并
+NOISE_RATIO = 0.10    # 曲率强度不到全圈最强峰 10% 的峰，当走线抖动丢掉
 
 
 def load_streams(path):
@@ -234,6 +239,39 @@ def detect_corners(series, grid=GRID, expected=None, curv=None):
                 continue
         merged.append(p)
 
+    # —— 长弯合并（2026-10-28）：同号、相距 < LONG_MERGE_M、中间曲率没明显回落
+    #    → 是同一个长弯的两个鼓包（蒙扎 Parabolica、银石 Stowe 这种）。
+    #    注意：异号绝不合并（那是 S 弯 / chicane 的两段）。
+    #    ⚠️ 只在「自然峰比官方弯数多」时才合并 —— 否则会把银石的 Maggotts/Becketts
+    #    这种连续弯组误合并（2026-10-28 实测：银石 18 弯被合并成 14 个）。
+    n_expected = expected if expected and expected > 0 else 0
+    if n_expected and len(merged) > n_expected:
+        raw_merged = merged
+        lm = [merged[0]]
+        for p in merged[1:]:
+            last = lm[-1]
+            same_sign = sm[p] is not None and sm[last] is not None and sm[p] * sm[last] > 0
+            if same_sign and (p - last) * grid < LONG_MERGE_M:
+                mid = [abs(sm[j]) for j in range(last, p + 1) if sm[j] is not None]
+                weaker = min(abs(sm[last]), abs(sm[p]))
+                if mid and weaker > 1e-9 and min(mid) >= LONG_KEEP * weaker:
+                    # 中间没回落 → 同一长弯，保留曲率更强的那个峰当 apex
+                    lm[-1] = p if abs(sm[p]) > abs(sm[last]) else last
+                    continue
+            lm.append(p)
+        merged = lm
+
+        # —— 噪声过滤：强度不到全圈最强峰 NOISE_RATIO 的，是走线抖动不是弯
+        peak = max((abs(sm[p]) for p in merged if sm[p] is not None), default=0.0)
+        if peak > 0:
+            merged = [p for p in merged
+                      if sm[p] is not None and abs(sm[p]) >= NOISE_RATIO * peak]
+
+        # 兜底：合并/过滤别过头 —— 处理完如果比官方弯数还少，说明判据在这条赛道不适用，
+        # 退回未处理的峰，交给下面的官方弯数约束（银石就吃过这个亏：18 弯被合并成 14）
+        if len(merged) < n_expected:
+            merged = raw_merged
+
     # 有官方弯数时：强制取最强的 expected 个峰，并保证相邻弯至少隔 MIN_GAP 米
     if expected and expected > 0 and len(merged) > expected:
         MIN_GAP = 80.0                       # 两个弯心靠得比这更近，说明是同一个弯的两个鼓包
@@ -369,18 +407,40 @@ def analyse(path, total=DEFAULT_LEN):
 
     best_i = min(range(len(result["laps"])), key=lambda i: result["laps"][i]["lap_ms"])
     result["best_index"] = best_i
-    # 官方弯数作为硬约束（tracks.py 里每个赛道都有 official_turns）
+    # 弯位优先级：
+    #   1. tracks.py 里**已校准**的赛道（validated + detected_corners）→ 直接用校准表，
+    #      这样报告里的「第 N 弯」和校准表、弯名完全一致（2026-10-28 加）
+    #   2. 没校准的赛道 → 用曲率识别（官方弯数 official_turns 当硬约束）
     expected = None
+    calibrated = None
     try:
         import tracks as T
         tinfo = T.get_by_track_id(sess.get("trackId", -1))
         if tinfo:
             expected = tinfo.get("official_turns")
+            if tinfo.get("status") == T.STATUS_VALIDATED and tinfo.get("detected_corners"):
+                calibrated = tinfo["detected_corners"]
     except Exception:
         expected = None
     result["expected_turns"] = expected
-    # 弯道识别用**多圈平均曲率**：单圈走线差异和 yaw 噪声会互相抵消，比最快圈单圈稳
-    if len(series_list) > 1:
+    if calibrated:
+        avg_v_cal = average_field(series_list, "v", GRID)
+        corners = []
+        for c in calibrated:
+            i = min(len(avg_v_cal) - 1, int((c.get("apex_m") or 0) / GRID))
+            corners.append({
+                "start": c["entry_m"],
+                "end": c["exit_m"],
+                "apex_d": c["apex_m"],
+                "apex_v": avg_v_cal[i] if avg_v_cal else None,
+                "dir": c["dir"],
+                "curv": None,
+                "radius_m": c.get("radius_m"),
+                "name": c.get("name"),
+            })
+        result["corners"] = corners
+        result["corner_source"] = "tracks_calibrated"
+    elif len(series_list) > 1:
         avg_k = average_curvature(series_list, GRID)
         avg_v = average_field(series_list, "v", GRID)
         result["corners"] = detect_corners({"v": avg_v}, expected=expected, curv=avg_k)

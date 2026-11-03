@@ -28,29 +28,32 @@ TRACKS = {
         "length_m": 5890,
         "official_turns": 18,   # F1 官方计数（含弯组拆分）
         "status": STATUS_VALIDATED,
-        "calibrated_from": "frames_20261026_131106.jsonl · 3 圈多圈平均（2026-10-26）",
-        # ✅ 实测弯位（曲率识别 + 3 圈平均）：赛道第几米到第几米是一个弯。
-        #    报告里的「第 N 弯」编号就是这里的 no，可直接拿来定位、画图、做逐弯统计。
-        #    误差量级：几十米（算的是玩家实际走线，不是赛道中心线）。
+        "calibrated_from": "三份实跑数据交叉验证（三取二）：frames_20261026_122836 / 131106 / 143303 · 官方弯名核对（2026-10-28 重建）",
+        # ⚠️ 2026-10-28 重建：旧表用 detect_corners「取最强 18 个峰」凑弯数 —— 同一赛道两份数据
+        #    （131106 / 143303）跑出的第 6 弯差 740 米、第 8 弯差 870 米，数据稍有不同就整体错位。
+        # 新做法：转角法找稳定弯段（三份数据一致）→ 段内平均曲率找 apex → 三份三取二（差 ≤40 米），
+        #    18 个弯全部通过。弯名来源：F1 官方《How every Silverstone corner got its name》（2026-07-01），
+        #    方向按官方布局（数据在高速大半径弯上的左右判断不可靠，如 Copse / Maggotts）。
+        # 弯位说明：entry/exit = 转角法弯段区间，apex = 区间内曲率峰（三取二）。
         "detected_corners": [
-            {"no": 1,  "entry_m": 320,  "apex_m": 395,  "exit_m": 505,  "dir": "R", "radius_m": 139},
-            {"no": 2,  "entry_m": 505,  "apex_m": 620,  "exit_m": 780,  "dir": "L", "radius_m": 160},
-            {"no": 3,  "entry_m": 780,  "apex_m": 945,  "exit_m": 1005, "dir": "R", "radius_m": 49},
-            {"no": 4,  "entry_m": 1005, "apex_m": 1070, "exit_m": 1155, "dir": "L", "radius_m": 34},
-            {"no": 5,  "entry_m": 1155, "apex_m": 1245, "exit_m": 1640, "dir": "L", "radius_m": 124},
-            {"no": 6,  "entry_m": 1640, "apex_m": 2035, "exit_m": 2120, "dir": "L", "radius_m": 65},
-            {"no": 7,  "entry_m": 2120, "apex_m": 2210, "exit_m": 2640, "dir": "R", "radius_m": 45},
-            {"no": 8,  "entry_m": 2640, "apex_m": 3070, "exit_m": 3105, "dir": "R", "radius_m": 136},
-            {"no": 9,  "entry_m": 3105, "apex_m": 3145, "exit_m": 3455, "dir": "R", "radius_m": 142},
-            {"no": 10, "entry_m": 3455, "apex_m": 3770, "exit_m": 3830, "dir": "R", "radius_m": 164},
-            {"no": 11, "entry_m": 3830, "apex_m": 3895, "exit_m": 3980, "dir": "L", "radius_m": 123},
-            {"no": 12, "entry_m": 3980, "apex_m": 4065, "exit_m": 4130, "dir": "R", "radius_m": 88},
-            {"no": 13, "entry_m": 4130, "apex_m": 4195, "exit_m": 4625, "dir": "L", "radius_m": 184},
-            {"no": 14, "entry_m": 4625, "apex_m": 5055, "exit_m": 5295, "dir": "R", "radius_m": 101},
-            {"no": 15, "entry_m": 5295, "apex_m": 5540, "exit_m": 5580, "dir": "L", "radius_m": 47},
-            {"no": 16, "entry_m": 5580, "apex_m": 5625, "exit_m": 5685, "dir": "R", "radius_m": 54},
-            {"no": 17, "entry_m": 5685, "apex_m": 5745, "exit_m": 5780, "dir": "R", "radius_m": 116},
-            {"no": 18, "entry_m": 5780, "apex_m": 5820, "exit_m": 5855, "dir": "R", "radius_m": 135},
+            {"no": 1,  "name": "Abbey",       "entry_m": 345,  "apex_m": 373,  "exit_m": 550,  "dir": "R", "radius_m": 91},
+            {"no": 2,  "name": "Farm Curve",  "entry_m": 580,  "apex_m": 602,  "exit_m": 760,  "dir": "L", "radius_m": 114},
+            {"no": 3,  "name": "Village",     "entry_m": 835,  "apex_m": 943,  "exit_m": 990,  "dir": "R", "radius_m": 33},
+            {"no": 4,  "name": "The Loop",    "entry_m": 1000, "apex_m": 1082, "exit_m": 1250, "dir": "L", "radius_m": 25},
+            {"no": 5,  "name": "Aintree",     "entry_m": 1250, "apex_m": 1283, "exit_m": 1350, "dir": "L", "radius_m": 98},
+            {"no": 6,  "name": "Brooklands",  "entry_m": 1885, "apex_m": 2025, "exit_m": 2090, "dir": "R", "radius_m": 53},
+            {"no": 7,  "name": "Luffield",    "entry_m": 2105, "apex_m": 2203, "exit_m": 2345, "dir": "R", "radius_m": 40},
+            {"no": 8,  "name": "Woodcote",    "entry_m": 2470, "apex_m": 2622, "exit_m": 2700, "dir": "R", "radius_m": 208},
+            {"no": 9,  "name": "Copse",       "entry_m": 3015, "apex_m": 3042, "exit_m": 3240, "dir": "R", "radius_m": 94},
+            {"no": 10, "name": "Maggotts",    "entry_m": 3550, "apex_m": 3565, "exit_m": 3635, "dir": "R", "radius_m": 216},
+            {"no": 11, "name": "Maggotts",    "entry_m": 3685, "apex_m": 3772, "exit_m": 3810, "dir": "R", "radius_m": 84},
+            {"no": 12, "name": "Becketts",    "entry_m": 3830, "apex_m": 3888, "exit_m": 3960, "dir": "L", "radius_m": 84},
+            {"no": 13, "name": "Becketts",    "entry_m": 3970, "apex_m": 4073, "exit_m": 4150, "dir": "L", "radius_m": 66},
+            {"no": 14, "name": "Chapel",      "entry_m": 4170, "apex_m": 4202, "exit_m": 4285, "dir": "R", "radius_m": 125},
+            {"no": 15, "name": "Stowe",       "entry_m": 4950, "apex_m": 5022, "exit_m": 5220, "dir": "R", "radius_m": 78},
+            {"no": 16, "name": "Vale",        "entry_m": 5480, "apex_m": 5550, "exit_m": 5575, "dir": "R", "radius_m": 38},
+            {"no": 17, "name": "Club",        "entry_m": 5585, "apex_m": 5625, "exit_m": 5730, "dir": "R", "radius_m": 39},
+            {"no": 18, "name": "Club",        "entry_m": 5730, "apex_m": 5800, "exit_m": 5880, "dir": "R", "radius_m": 46},
         ],
         # 15 个公认命名弯。官方 18 是把这个列表里的弯组再拆开计数
         # （Maggotts / Becketts / Club 等是连续弯组，位置确定后再决定拆不拆）
@@ -72,6 +75,46 @@ TRACKS = {
             {"no": 15, "name": "Club",        "entry_m": None, "apex_m": None, "exit_m": None},
         ],
     },
+    # ——— 蒙扎（Monza）：三次实跑 + 官方命名核对完成（2026-10-28 validated）———
+    # 实测确认：trackId=11、Session 报告长度 5798 米、弯数 = 官方 11
+    # 弯名来源：F1 官方《How every corner at Monza got its name》（2026-09-03）
+    #   Turns 1/2 Prima Variante（旧名 Variante del Rettifilo）· Turn 3 Biassono（旧名 Curva Grande）
+    #   Turns 4/5 Seconda Variante（旧名 Curva della Roggia）· Turns 6/7 Lesmo 1 & 2
+    #   Turns 8/9/10 Variante Ascari（前有 Curva del Serraglio，非官方弯）· Turn 11 Curva Alboreto（Parabolica）
+    # 弯位算法：用「累计转角」找弯（scripts/corners_by_angle.py）—— 比曲率峰值法多抓到了
+    #   Curva Grande 这个大半径长弯（半径 216 米，曲率低于原阈值 0.005，之前整个漏掉）
+    # 稳定性：10-28 两份独立数据（早/午）用转角法互相对比，11 个弯的 entry 差全部 ≤ 25 米
+    # 判定依据：形状（转角/半径/apex 速度）与官方布局一一对应 ——
+    #   T1/2 低速 chicane（apex 80/75、半径 37/27）
+    #   T3 大半径长弯（半径 216、长 565 米、全油段速度 272~295）
+    #   T4/5 中速 chicane（apex 118/112、半径 59/53）
+    #   T6/7 两个连续右弯（101°/67°、半径 77/76）
+    #   T8/9/10 三连弯（47°/41°/38°、半径 90/122/120）
+    #   T11 长弯（161°、半径 78，出弯接主直道）
+    # 注：F1 25 是 2025 赛制布局，T3 按数据是左弯（2026 官方文章称 Biassono 为右弯，属 2026 改版/表述差异）
+    "monza": {
+        "track_id": 11,
+        "name": "Monza",
+        "country": "IT",
+        "length_m": 5798,
+        "official_turns": 11,
+        "status": STATUS_VALIDATED,
+        "calibrated_from": "frames_20261028_120920 + 20261028_123025（转角法，两份互验）+ 官方弯名核对（2026-10-28）",
+        "detected_corners": [
+            {"no": 1,  "name": "Prima Variante",      "entry_m": 890,  "apex_m": 920,  "exit_m": 950,  "dir": "R", "radius_m": 37,  "angle_deg": 60},
+            {"no": 2,  "name": "Prima Variante",      "entry_m": 960,  "apex_m": 990,  "exit_m": 1020, "dir": "L", "radius_m": 27,  "angle_deg": 80},
+            {"no": 3,  "name": "Curva Grande",        "entry_m": 1090, "apex_m": 1370, "exit_m": 1655, "dir": "L", "radius_m": 216, "angle_deg": 78},
+            {"no": 4,  "name": "Seconda Variante",    "entry_m": 2105, "apex_m": 2140, "exit_m": 2180, "dir": "R", "radius_m": 59,  "angle_deg": 50},
+            {"no": 5,  "name": "Seconda Variante",    "entry_m": 2190, "apex_m": 2215, "exit_m": 2240, "dir": "L", "radius_m": 53,  "angle_deg": 42},
+            {"no": 6,  "name": "Lesmo 1",             "entry_m": 2460, "apex_m": 2560, "exit_m": 2665, "dir": "R", "radius_m": 77,  "angle_deg": 102},
+            {"no": 7,  "name": "Lesmo 2",             "entry_m": 2820, "apex_m": 2890, "exit_m": 2955, "dir": "R", "radius_m": 76,  "angle_deg": 67},
+            {"no": 8,  "name": "Ascari",              "entry_m": 3905, "apex_m": 3950, "exit_m": 4000, "dir": "L", "radius_m": 90,  "angle_deg": 47},
+            {"no": 9,  "name": "Ascari",              "entry_m": 4015, "apex_m": 4065, "exit_m": 4115, "dir": "R", "radius_m": 122, "angle_deg": 41},
+            {"no": 10, "name": "Ascari",              "entry_m": 4130, "apex_m": 4180, "exit_m": 4235, "dir": "L", "radius_m": 120, "angle_deg": 38},
+            {"no": 11, "name": "Parabolica (Alboreto)", "entry_m": 5100, "apex_m": 5280, "exit_m": 5460, "dir": "R", "radius_m": 78, "angle_deg": 161},
+        ],
+        "corners": [],
+    },
 }
 
 # trackId → 内部 key 的反查表（Session 包只给数字 trackId）
@@ -87,11 +130,15 @@ def corner_at(track, dist_m):
     """给一个赛道位置（米），返回落在哪个弯里；(corner, phase) 或 (None, None)。
 
     phase: 'entry' / 'apex' / 'exit'。
-    优先用**实测弯位** `detected_corners`（已校准），没有才退回命名弯 `corners`。
+    优先用**实测弯位** `detected_corners`（实测出来的，pending 阶段也能用 —— 只是没二次验证），
+    没有才退回命名弯 `corners`（命名弯的距离字段通常是空的，得 validated 才有意义）。
     """
-    if not track or track.get("status") != STATUS_VALIDATED:
+    if not track:
         return None, None
     src = track.get("detected_corners") or track.get("corners") or []
+    # 命名弯表的距离可能还没填（全 None），这种情况直接返回，别浪费时间
+    if not src or all(c.get("entry_m") is None for c in src):
+        return None, None
     for c in src:
         if c.get("entry_m") is None:
             continue

@@ -18,11 +18,22 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 HERE = os.environ.get("SIM_DATA_DIR") or os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state_summary.json")
 NSEG = 20
-TRACKS = {0: "Melbourne", 1: "Shanghai", 2: "Bahrain", 3: "Jeddah", 4: "Imola", 5: "Monza",
-          6: "Monaco", 7: "Silverstone", 8: "Spa", 9: "Suzuka", 10: "Zandvoort", 11: "Austin",
-          12: "Mexico", 13: "Brazil", 14: "Baku", 15: "Las Vegas", 16: "Qatar", 17: "Austria",
-          18: "Hungary", 19: "Singapore", 20: "Spain", 21: "Canada", 22: "France", 23: "Netherlands",
-          24: "USA", 25: "Abu Dhabi", 26: "Miami", 27: "Portugal", 28: "Saudi", 29: "Mugello"}
+# trackId → 赛道名。⚠️ 只放「实测确认过」的，其余交给 tracks.py。
+# 历史坑：这里原本抄了一张凭印象的 F1 22 表，把 trackId 11 写成 Austin，
+# 结果 2026-10-27 跑蒙扎（实测 trackId=11、trackLen=5798）时摘要标题成了「Austin 明细」。
+TRACKS = {7: "Silverstone", 11: "Monza"}
+
+
+def track_name(track_id):
+    """赛道名：优先 tracks.py 的校准表（唯一权威），其次实测确认的小表，最后显示 track<id>。"""
+    try:
+        import tracks as T
+        t = T.get_by_track_id(track_id)
+        if t:
+            return t.get("name") or ("track%s" % track_id)
+    except Exception:
+        pass
+    return TRACKS.get(track_id, "track%s" % track_id)
 
 CORNER_NAMES = {  # 按出现顺序给 Silverstone 的弯起个名字（仅用于摘要可读性）
     "Silverstone": ["Abbey", "Village", "TheLoop", "Luffield", "Copse", "Maggotts",
@@ -111,7 +122,7 @@ def main():
         print("这轮还没跑出完整圈（或数据太短）")
         return 1
 
-    track = TRACKS.get(sess.get("trackId", -1), "?")
+    track = track_name(sess.get("trackId", -1))
     names = CORNER_NAMES.get(track, [])
 
     # 增量：只报新圈

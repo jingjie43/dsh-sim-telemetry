@@ -24,6 +24,16 @@
 - **`trackmap.py`**：轨迹诊断图
 - **`tracks.py`**：银石 18 弯位已实测校准（validated）
 
+### 0.2.4 · 第二条赛道 + 校准工具化
+- **银石校准重建**（2026-10-28）：旧表在两次数据间最多差 870 米 → 改为「转角法弯段 + 三份数据三取二」，
+  18 弯全部通过 + 官方弯名（Abbey / Farm Curve / Village / The Loop / Aintree / Brooklands / Luffield /
+  Woodcote / Copse / Maggotts ×2 / Becketts ×2 / Chapel / Stowe / Vale / Club ×2）
+- **蒙扎校准**：trackId 11 / 5798 米 / 11 弯 validated + 官方弯名（Prima Variante / Curva Grande /
+  Seconda Variante / Lesmo 1 / Lesmo 2 / Ascari / Parabolica）
+- **报告优先用校准表分弯 + 显示官方弯名**
+- **新工具**：`corners_by_angle.py`（转角法找弯）、`calibrate_track.py`（生成条目）、
+  `check_data.py`（数据完整性）、`rebuild_silverstone.py`（重建）、`make_track_map.py`（赛道图 + 弯位表）
+
 ### 自动化
 - 「跑到第 N 圈自动出报告」：跑满自动停
 - 跑满后自动产出链：`summary.py` → `plot.py` → `trackmap.py` → `report.py`
@@ -44,8 +54,9 @@
 2. **分段 S1 / S2 / S3 + 圈速有效性（invalid）判定**
    - `collect_f1.py` 里已有 sector 偏移线索（LapData @8..19），分析层还没用上
    - 有分段才能说「你 S2 慢了 0.3 秒」，也让 invalid 圈不污染对比
-3. **其他 23 条赛道的官方弯数表**
-   - `tracks.py` 现在只有银石一条；其他赛道 `official_turns = None`，会退回阈值识别（弯数会飘）
+3. **其他 22 条赛道的弯位表**
+   - ✅ 已完成 2 条：银石（18 弯，2026-10-28 重建）、蒙扎（11 弯）
+   - 其余赛道 `official_turns = None`，会退回阈值识别（弯数会飘）；跑过就能用 `calibrate_track.py` 加
    - 官方弯数属公开资料，可以先填；弯位距离仍需实跑校准
 4. **AI / 全车对比**
    - `allcars_*.jsonl` 已有 22 车的速度/油门/刹车/档位（每 250ms）
@@ -71,10 +82,12 @@
 - **发布后要盯**：首日评论/弹幕（安装问题、赛道校准、LMU/AC 需求）、GitHub traffic（14 天窗口，发完先记一次）、
   star/fork 变化；答疑用 `bilibili-0.2.3-log.md` 第八节的模板
 - **GitHub 现状（2026-10-27 查，发布前）**：0 star / 0 fork / 0 issue；traffic 浏览量只有 owner 能看
-- **本地 git 历史落后**：`.git` 停在 `560d4081`（v0.2.0），0.2.3 是走 GitHub API 推的；本地 tag 只有 v0.1.1 / v0.2.0
-- **GitHub token 约 2026-10-31 到期**，要换新的（fine-grained，只授权该仓库 Contents 读写）
-- 备份 `backup/旧遥测数据-1024-1025.zip`（1.6 MB）：确认不再需要可删
-- `~/.dsh/sim-telemetry` 里还有两个 1 KB 的 10-24 孤儿文件（`summary_full_20261024_095540.md`、`laps_20261024_095540.csv`）
+- ✅ **本地 git 已对齐（2026-10-27）**：本机有 git（`C:\Program Files\Git\cmd\git.exe`），
+  fetch 到远端 `0d66586` + tag v0.2.1 / v0.2.2 / v0.2.3；未推的发布物料与脚本已本地提交（`a4a6b14`，ahead 1），工作区干净
+- ⏳ **GitHub token 约 2026-10-31 到期**（还有 4 天）→ 换新的（fine-grained，只授权该仓库 Contents 读写）；
+  换完可以把本地 ahead 的这 1 个 commit 推上去
+- ✅ 备份 zip（`backup/旧遥测数据-1024-1025.zip`）与 10-24 孤儿文件已删（2026-10-27）；
+  `~/.dsh/sim-telemetry` 现在只剩 10-26 那组三圈数据和 debug.log
 
 ---
 
