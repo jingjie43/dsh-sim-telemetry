@@ -446,6 +446,40 @@ export function apply(ctx, config = {}) {
                 const r = stopCollect();
                 return send(200, { ...r, ...status() });
               }
+              // ---- 历史记录 / 对比（2026-11-03） ----
+              const tsOf = (b) => (Array.isArray(b.ts) ? b.ts : []).filter((x) => /^\d{8}_\d{6}$/.test(String(x)));
+              const parsePy = (out, fallback) => {
+                try { return JSON.parse(out.stdout); } catch { return { ok: false, error: out.stderr || fallback }; }
+              };
+              if (req.method === "GET" && path === "/api/sim-telemetry/history") {
+                const out = await runPython("history.py", ["list"], 60000);
+                return send(200, parsePy(out, "读取历史失败"));
+              }
+              if (req.method === "POST" && path === "/api/sim-telemetry/history/delete") {
+                const b = await body();
+                const ts = tsOf(b).join(",");
+                if (!ts) return send(400, { ok: false, error: "没有选择记录" });
+                const out = await runPython("history.py", ["delete", ts], 60000);
+                return send(200, parsePy(out, "删除失败"));
+              }
+              if (req.method === "POST" && path === "/api/sim-telemetry/history/export") {
+                const b = await body();
+                const ts = tsOf(b).join(",");
+                if (!ts) return send(400, { ok: false, error: "没有选择记录" });
+                const zipPath = join(dataDir(), "export_" + Date.now() + ".zip");
+                const out = await runPython("history.py", ["export", zipPath, ts], 60000);
+                return send(200, { ...parsePy(out, "打包失败"), zip: zipPath });
+              }
+              if (req.method === "POST" && path === "/api/sim-telemetry/compare") {
+                const b = await body();
+                const type = b.type === "advice" ? "advice" : "speed";
+                const tsList = tsOf(b);
+                if (tsList.length < 2) return send(400, { ok: false, error: "至少选 2 份记录才能对比" });
+                const files = tsList.map((ts) => join(dataDir(), "frames_" + ts + ".jsonl"));
+                const outPath = join(dataDir(), "plots", "compare_" + type + "_" + Date.now() + ".png");
+                const out = await runPython("compare.py", [type, outPath, ...files], 240000);
+                return send(200, { ok: out.ok, png: outPath, output: out.stdout, error: out.stderr });
+              }
               return send(404, { ok: false, error: `unknown ${req.method} ${path}` });
             } catch (err) {
               return send(500, { ok: false, error: String((err && err.message) || err) });

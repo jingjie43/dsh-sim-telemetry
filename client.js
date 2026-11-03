@@ -207,7 +207,93 @@ window.__ModuleLoader__.load({
           h('span', { style: S.note }, collecting ? `采集中：已 ${st.collectingSeconds} 秒（端口 ${st.udpPort}）` : '空闲')),
         h('div', { style: S.note }, '数据目录：' + (st ? st.dataDir : '—')),
         h('div', { style: S.note }, '提示：也可以在对话里让大肥鱼用 telemetry_start / telemetry_summary / telemetry_plot 这几个工具。'),
+        h(HistorySection, null),
         h('div', { style: S.note }, '作者：B站「静戒的大肥鱼」· UID 544228946'),
+      )
+    }
+
+    // ---- 历史记录（勾选 / 对比 / 打包 / 删除）----
+    const HistorySection = () => {
+      const [items, setItems] = React.useState([])
+      const [sel, setSel] = React.useState({})
+      const [busy, setBusy] = React.useState(false)
+      const [loading, setLoading] = React.useState(true)
+      const [msg, setMsg] = React.useState('')
+
+      const load = async () => {
+        setLoading(true)
+        try {
+          const r = await jget('/history')
+          setItems(r.ok ? (r.items || []) : [])
+          if (!r.ok) setMsg('读取失败: ' + (r.error || ''))
+        } catch (e) { setMsg('读取失败: ' + String(e)) } finally { setLoading(false) }
+      }
+      React.useEffect(() => { load() }, [])
+
+      const toggle = (ts) => setSel((s) => ({ ...s, [ts]: !s[ts] }))
+      const selected = Object.keys(sel).filter((k) => sel[k])
+
+      const doCompare = async (type) => {
+        if (selected.length < 2) { setMsg('至少选 2 份记录才能对比'); return }
+        setBusy(true)
+        try {
+          const r = await jpost('/compare', { type, ts: selected })
+          setMsg(r.ok ? '对比图已生成：' + r.png : '生成失败: ' + (r.error || ''))
+        } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
+      }
+      const doExport = async () => {
+        if (!selected.length) { setMsg('先勾选记录'); return }
+        setBusy(true)
+        try {
+          const r = await jpost('/history/export', { ts: selected })
+          setMsg(r.ok ? '已打包：' + r.zip : '打包失败: ' + (r.error || ''))
+        } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
+      }
+      const doDelete = async () => {
+        if (!selected.length) { setMsg('先勾选记录'); return }
+        if (!window.confirm('确定删除选中的 ' + selected.length + ' 份采集？不可恢复。')) return
+        setBusy(true)
+        try {
+          const r = await jpost('/history/delete', { ts: selected })
+          setMsg(r.ok ? '已删除 ' + ((r.deleted || []).length) + ' 个文件' : '删除失败: ' + (r.error || ''))
+          setSel({})
+          await load()
+        } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
+      }
+
+      const groups = {}
+      for (const it of items) {
+        const k = it.track || '未知道路'
+        ;(groups[k] = groups[k] || []).push(it)
+      }
+
+      return h('div', { style: S.card },
+        h('div', { style: S.row },
+          h('span', { style: S.title }, '历史记录'),
+          h('button', { type: 'button', style: S.btn, onClick: load, disabled: busy }, '刷新'),
+          selected.length ? h('span', { style: S.note }, '已选 ' + selected.length + ' 份') : null,
+        ),
+        loading ? h('div', { style: S.note }, '读取中…') : null,
+        !loading && !items.length ? h('div', { style: S.note }, '还没有采集记录') : null,
+        Object.keys(groups).map((track) => h('div', { key: track, style: { marginTop: 6 } },
+          h('div', { style: S.note }, '▸ ' + track + '（' + groups[track].length + ' 次）'),
+          groups[track].map((it) => h('div', { key: it.ts, style: { ...S.row, paddingLeft: 10 } },
+            h('input', {
+              type: 'checkbox', checked: !!sel[it.ts],
+              onChange: () => toggle(it.ts),
+            }),
+            h('span', { style: S.label },
+              it.time + '  ' + it.lapCount + ' 圈  最快 ' + (it.bestStr || '—') +
+              (it.laps && it.laps.length ? '  [' + it.laps.map((l) => l.lap_ms ? (l.lap_ms / 1000).toFixed(1) : '-').join(' / ') + ']' : '')),
+          )),
+        )),
+        h('div', { style: { ...S.row, marginTop: 8, flexWrap: 'wrap' } },
+          h('button', { type: 'button', style: S.primary, onClick: () => doCompare('speed'), disabled: busy }, '对比速度曲线'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doCompare('advice'), disabled: busy }, '对比逐弯改进表'),
+          h('button', { type: 'button', style: S.btn, onClick: doExport, disabled: busy }, '打包 zip'),
+          h('button', { type: 'button', style: S.btn, onClick: doDelete, disabled: busy }, '删除选中'),
+        ),
+        msg ? h('div', { style: S.note }, msg) : null,
       )
     }
 

@@ -158,7 +158,16 @@ def main():
     if not laps_out:
         print("切不出完整圈")
         return 1
-    track = TRACKS.get(sess.get("trackId", -1), "?")
+    track = None
+    try:
+        import tracks as _T
+        _ti = _T.get_by_track_id(sess.get("trackId", -1))
+        if _ti:
+            track = _ti["name"]
+    except Exception:
+        pass
+    if not track:
+        track = TRACKS.get(sess.get("trackId", -1), "?")
     ts = os.path.basename(path).replace("frames_", "").replace(".jsonl", "")
     plots = os.path.join(here, "plots")
     os.makedirs(plots, exist_ok=True)
