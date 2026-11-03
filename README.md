@@ -58,20 +58,30 @@
 
 ## 安装
 
-> 三种方式都行，**推荐用 Releases 里的安装包**（预构建、不用构建授权，最不容易踩坑）。
+> 三种方式都行，**推荐 npm 一条命令**（最简单、免构建授权、升级也方便）。
 
-### 方式一：Release 安装包（推荐）
-
-1. 打开 [Releases](https://github.com/jingjie43/dsh-sim-telemetry/releases)，下载最新的 `dsh-sim-telemetry-0.2.3.tgz`
-2. 在 DSH 的终端里安装（profile 名按你的实际情况，桌面版一般是 `desktop`）：
+### 方式一：npm（推荐）
 
 ```bash
-dsh plugin --profile web add ./dsh-sim-telemetry-0.2.3.tgz
+dsh plugin --profile web add dsh-sim-telemetry
 ```
 
-3. 重启 DSH → 设置左侧出现「赛车遥测」
+装完**重启 DSH** → 设置左侧出现「赛车遥测」。
 
-### 方式二：GitHub 源码
+（profile 名按你的实际情况，桌面版一般是 `desktop`）
+
+### 方式二：Release 安装包（离线 / 内网用）
+
+1. 打开 [Releases](https://github.com/jingjie43/dsh-sim-telemetry/releases)，下载最新的 `dsh-sim-telemetry-0.2.4.tgz`
+2. 安装：
+
+```bash
+dsh plugin --profile web add ./dsh-sim-telemetry-0.2.4.tgz
+```
+
+3. 重启 DSH
+
+### 方式三：GitHub 源码
 
 在 DSH「设置 → 插件」里填仓库地址：
 
@@ -86,15 +96,7 @@ allowBuilds:
   dsh-sim-telemetry: true
 ```
 
-再装一次即可。**如果折腾两次还装不上，直接用方式一的安装包**，那个不需要授权。
-
-### 方式三：npm（准备中）
-
-包名 `dsh-sim-telemetry` 已预留，发布后就能一条命令装：
-
-```bash
-dsh plugin --profile web add dsh-sim-telemetry
-```
+再装一次即可。**如果折腾两次还装不上，直接用方式一（npm）或方式二（安装包）**，那两个都不需要授权。
 
 ### 环境依赖
 - **Python 3.10+**（3.11 / 3.12 / 3.13 都行）
