@@ -21,7 +21,7 @@ NSEG = 20
 # trackId → 赛道名。⚠️ 只放「实测确认过」的，其余交给 tracks.py。
 # 历史坑：这里原本抄了一张凭印象的 F1 22 表，把 trackId 11 写成 Austin，
 # 结果 2026-10-27 跑蒙扎（实测 trackId=11、trackLen=5798）时摘要标题成了「Austin 明细」。
-TRACKS = {7: "Silverstone", 11: "Monza"}
+TRACKS = {7: "Silverstone", 10: "Spa-Francorchamps", 11: "Monza"}
 
 
 def track_name(track_id):

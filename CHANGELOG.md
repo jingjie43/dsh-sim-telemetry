@@ -3,8 +3,14 @@
 ## 0.2.5 — 开发中
 
 ### 新增
-- **设置页显示作者信息**：面板底部加一行「作者：B站「静戒的大肥鱼」· UID 544228946」，
-  让用户知道插件是谁做的、去哪找作者
+- **斯帕（Spa-Francorchamps）赛道校准**：19 弯 alidated + 官方弯名（La Source / Eau Rouge ×2 / Raidillon /
+  Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve / Pouhon ×2 / Fagnes ×2 / Campus /
+  Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2），三份实跑数据三取二
+- **设置页显示作者信息**：面板底部加一行「作者：B站「静戒的大肥鱼」· UID 544228946」
+
+### 修复
+- **赛道长度 bug**：DEFAULT_LEN=5890（银石长度）被所有赛道共用，Spa 7007 米后段（Blanchimont/Bus Stop）
+  被整段丢弃、弯位识别不出来；现在按 Session 包的 trackLen 自动检测实际赛道长度（engineer.detect_track_len）
 
 ## 0.2.4 — 2026-11-03
 

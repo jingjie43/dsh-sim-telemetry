@@ -141,7 +141,7 @@ F1 25 → 设置 → 遥测设置：
 
 ## 已知限制
 
-### ⚠️ 弯位校准进度：2 / 24 条赛道（都含官方弯名）
+### ⚠️ 弯位校准进度：3 / 24 条赛道（都含官方弯名）
 
 - ✅ **银石（Silverstone）**：18 个弯，`validated` ——
   2026-10-28 **重建**：旧表用「取曲率最强的 18 个峰」凑弯数，同一赛道两份数据最多差 870 米；
@@ -150,6 +150,12 @@ F1 25 → 设置 → 遥测设置：
 - ✅ **蒙扎（Monza）**：11 个弯，`validated` ——
   三份数据交叉验证 + 官方弯名：Prima Variante / Curva Grande / Seconda Variante /
   Lesmo 1 / Lesmo 2 / Ascari / Parabolica（来源：F1 官方《How every corner at Monza got its name》）
+- ✅ **斯帕（Spa-Francorchamps）**：19 个弯，`validated`（2026-11-03）——
+  三份实跑数据三取二 + 官方弯名：La Source / Eau Rouge ×2 / Raidillon / Les Combes ×2 / Malmedy /
+  Bruxelles / Jacky Ickx Curve / Pouhon ×2 / Fagnes ×2 / Campus / Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2
+  （来源：F1 官方《How every corner at the Circuit de Spa-Francorchamps got its name》）
+  ⚠️ 校准中修掉一个关键 bug：DEFAULT_LEN=5890 被所有赛道共用，Spa 7007 米后段（Blanchimont/Bus Stop）被整段丢弃；
+  现在按数据里的 trackLen 检测实际长度
 - ⚠️ **其余 22 条赛道**：还没填官方弯数，弯道识别会不准
 
 **为什么**：弯位必须用实跑数据校准，不能凭空填 —— 公开资料只有弯名和赛道全长，

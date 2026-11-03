@@ -67,7 +67,7 @@ def main():
         print("⚠️ trackId %s 已存在条目: %s「%s」" % (track_id, existing.get("key", "?"),
                                                     existing.get("name", "?")))
     series = [E.resample(E.lap_series(l, streams)) for l in lap_objs]
-    total = E.DEFAULT_LEN
+    total = E.detect_track_len(laps_pkts, sess)
     if track_id is not None:
         track_len = sess.get("trackLen") or total
         if track_len and abs(track_len - total) > 200:

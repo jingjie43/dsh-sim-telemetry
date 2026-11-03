@@ -115,6 +115,41 @@ TRACKS = {
         ],
         "corners": [],
     },
+    "spa": {
+        "track_id": 10,
+        "name": "Spa-Francorchamps",
+        "country": "BE",
+        "length_m": 7007,
+        "official_turns": 19,   # F1 官方计数（Eau Rouge 2-4 / Les Combes 5-6 等弯组拆分）
+        "status": STATUS_VALIDATED,
+        "calibrated_from": "三份实跑数据交叉验证（三取二）：frames_20261103_142238 / 143320 / 144227 · 官方弯名核对（2026-11-03）",
+        # 弯名来源：F1 官方《How every corner at the Circuit de Spa-Francorchamps got its name》（2026-07-15）
+        # ⚠️ 2026-11-03 修了赛道长度 bug：之前所有赛道共用 DEFAULT_LEN=5890（银石长度），
+        #    Spa 7007 米后段（Blanchimont/Bus Stop）被整段丢弃。现在按 Session 包 trackLen 检测。
+        # 弯位说明：entry/exit = 转角法弯段区间，apex = 区间内平均曲率峰（三份三取二，差 ≤40 米）。
+        "detected_corners": [
+            {"no": 1,  "name": "La Source",        "entry_m": 330,  "apex_m": 422,  "exit_m": 480,  "dir": "R", "radius_m": 21},
+            {"no": 2,  "name": "Eau Rouge",        "entry_m": 1120, "apex_m": 1150, "exit_m": 1190, "dir": "L", "radius_m": 84},
+            {"no": 3,  "name": "Eau Rouge",        "entry_m": 1192, "apex_m": 1207, "exit_m": 1260, "dir": "R", "radius_m": 189},
+            {"no": 4,  "name": "Raidillon",        "entry_m": 1280, "apex_m": 1327, "exit_m": 1380, "dir": "L", "radius_m": 178},
+            {"no": 5,  "name": "Les Combes",       "entry_m": 2370, "apex_m": 2435, "exit_m": 2478, "dir": "L", "radius_m": 45},
+            {"no": 6,  "name": "Les Combes",       "entry_m": 2482, "apex_m": 2520, "exit_m": 2600, "dir": "R", "radius_m": 45},
+            {"no": 7,  "name": "Malmedy",          "entry_m": 2605, "apex_m": 2662, "exit_m": 2765, "dir": "R", "radius_m": 76},
+            {"no": 8,  "name": "Bruxelles",        "entry_m": 2955, "apex_m": 3065, "exit_m": 3205, "dir": "R", "radius_m": 33},
+            {"no": 9,  "name": "Jacky Ickx Curve", "entry_m": 3215, "apex_m": 3333, "exit_m": 3400, "dir": "L", "radius_m": 61},
+            {"no": 10, "name": "Pouhon",           "entry_m": 3755, "apex_m": 3798, "exit_m": 3990, "dir": "L", "radius_m": 92},
+            {"no": 11, "name": "Pouhon",           "entry_m": 3995, "apex_m": 4052, "exit_m": 4230, "dir": "L", "radius_m": 96},
+            {"no": 12, "name": "Fagnes",           "entry_m": 4425, "apex_m": 4482, "exit_m": 4612, "dir": "R", "radius_m": 86},
+            {"no": 13, "name": "Fagnes",           "entry_m": 4425, "apex_m": 4548, "exit_m": 4612, "dir": "R", "radius_m": 86},
+            {"no": 14, "name": "Campus",           "entry_m": 4875, "apex_m": 4993, "exit_m": 5150, "dir": "L", "radius_m": 47},
+            {"no": 15, "name": "Curve Paul Frere", "entry_m": 5155, "apex_m": 5177, "exit_m": 5400, "dir": "R", "radius_m": 86},
+            {"no": 16, "name": "Blanchimont",      "entry_m": 5790, "apex_m": 5818, "exit_m": 6055, "dir": "L", "radius_m": 177},
+            {"no": 17, "name": "Blanchimont",      "entry_m": 6060, "apex_m": 6213, "exit_m": 6300, "dir": "L", "radius_m": 106},
+            {"no": 18, "name": "Bus Stop",         "entry_m": 6700, "apex_m": 6770, "exit_m": 6798, "dir": "R", "radius_m": 21},
+            {"no": 19, "name": "Bus Stop",         "entry_m": 6802, "apex_m": 6832, "exit_m": 6895, "dir": "L", "radius_m": 18},
+        ],
+        "corners": [],
+    },
 }
 
 # trackId → 内部 key 的反查表（Session 包只给数字 trackId）

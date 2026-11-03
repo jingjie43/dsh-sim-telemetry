@@ -85,8 +85,10 @@ def pick_data(track_id):
     return max(cand)[1] if cand else None
 
 
-def load_avg_track(path, total):
+def load_avg_track(path, total=None):
     frames, laps_pkts, sess, _ = L.load(path)
+    if not total:
+        total = E.detect_track_len(laps_pkts, sess)
     lap_objs = L.cut_laps(frames, laps_pkts)
     streams = E.load_streams(path)
     n = int(total / GRID) + 1
@@ -297,7 +299,7 @@ def main():
         print("没找到这条赛道的采集数据")
         return 1
     print("赛道:", track["name"], "· 数据:", os.path.basename(src))
-    ax, az, v, nlaps = load_avg_track(src, E.DEFAULT_LEN)
+    ax, az, v, nlaps = load_avg_track(src)
     for p in save(make_map(track, ax, az, v, nlaps, src), "%s-track-map.png" % key):
         print("已保存:", p)
     for p in save(make_table(track, ax, az, v, nlaps, src), "%s-corner-table.png" % key):

@@ -82,7 +82,7 @@ if not lap_objs:
     sys.exit(1)
 
 # 多圈平均的轨迹（取每圈平均位置，压掉走线差异）
-total = E.DEFAULT_LEN
+total = E.detect_track_len(laps_pkts, sess)
 tracks = [lap_track(l, streams, total) for l in lap_objs]
 n = int(total / GRID) + 1
 ax, az = [None] * n, [None] * n

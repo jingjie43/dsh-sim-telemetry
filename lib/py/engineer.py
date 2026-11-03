@@ -370,12 +370,35 @@ def ran_ge(rs, lo_i, d_from, d_to, grid=GRID):
     return max(vals) if vals else None
 
 
-def analyse(path, total=DEFAULT_LEN):
-    """一次性算完，返回结论 dict。"""
+def detect_track_len(laps_pkts, sess, fallback=DEFAULT_LEN):
+    """从 Session 包的 trackLen 或 LapData 的 dist 最大值推断实际赛道长度。
+
+    以前所有赛道都用银石长度 5890 米重采样，导致 Spa（7007 米）后段
+    （Blanchimont / Bus Stop）被整段丢弃、弯位识别不出来（2026-11-03 实测）。
+    """
+    if sess:
+        try:
+            tl = float(sess.get("trackLen") or 0)
+            if tl > 1000:
+                return tl
+        except Exception:
+            pass
+    mx = 0.0
+    for r in laps_pkts:
+        d = r.get("dist")
+        if d and d > mx:
+            mx = float(d)
+    return mx if mx > 1000 else fallback
+
+
+def analyse(path, total=None):
+    """一次性算完，返回结论 dict。total 不传就按数据里的真实赛道长度算。"""
     import laps as L
     import summary as S
 
     frames, laps_pkts, sess, flashbacks = L.load(path)
+    if not total:
+        total = detect_track_len(laps_pkts, sess)
     lap_objs = L.cut_laps(frames, laps_pkts)
     streams = load_streams(path)
 
