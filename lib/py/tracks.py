@@ -150,6 +150,35 @@ TRACKS = {
         ],
         "corners": [],
     },
+    "bahrain": {
+        "track_id": 3,
+        "name": "Bahrain International Circuit",
+        "country": "BH",
+        "length_m": 5412,
+        "official_turns": 15,
+        "status": STATUS_VALIDATED,
+        "calibrated_from": "三份实跑数据交叉验证（三取二）：frames_20261105_164654 / 170036 / 171819 · 官方弯名（Turn 1-15，巴林无传统弯名）",
+        # 巴林 Sakhir 布局，官方 15 弯。方向按实测 steer 判断（连续弯组 T1/T2、T5/T6、T11/T12 为同区间拆分）。
+        # 数据：164654（2 圈）/ 170036（3 圈，含慢圈）/ 171819（3 圈全正常，最快 1:36.799）
+        "detected_corners": [
+            {"no":  1, "name": "Turn 1",  "entry_m":  680, "apex_m":  705, "exit_m":  800, "dir": "R", "radius_m":  93},
+            {"no":  2, "name": "Turn 2",  "entry_m":  680, "apex_m":  760, "exit_m":  800, "dir": "L", "radius_m":  93},
+            {"no":  3, "name": "Turn 3",  "entry_m":  800, "apex_m":  863, "exit_m":  915, "dir": "R", "radius_m":  33},
+            {"no":  4, "name": "Turn 4",  "entry_m":  940, "apex_m":  985, "exit_m": 1070, "dir": "L", "radius_m": 149},
+            {"no":  5, "name": "Turn 5",  "entry_m": 1470, "apex_m": 1560, "exit_m": 1670, "dir": "R", "radius_m":  31},
+            {"no":  6, "name": "Turn 6",  "entry_m": 1470, "apex_m": 1622, "exit_m": 1670, "dir": "L", "radius_m":  31},
+            {"no":  7, "name": "Turn 7",  "entry_m": 1690, "apex_m": 1793, "exit_m": 1830, "dir": "R", "radius_m": 107},
+            {"no":  8, "name": "Turn 8",  "entry_m": 1835, "apex_m": 1920, "exit_m": 1980, "dir": "L", "radius_m":  54},
+            {"no":  9, "name": "Turn 9",  "entry_m": 1985, "apex_m": 2035, "exit_m": 2160, "dir": "R", "radius_m":  87},
+            {"no": 10, "name": "Turn 10", "entry_m": 2180, "apex_m": 2295, "exit_m": 2400, "dir": "L", "radius_m":  18},
+            {"no": 11, "name": "Turn 11", "entry_m": 2540, "apex_m": 2710, "exit_m": 2820, "dir": "R", "radius_m":  51},
+            {"no": 12, "name": "Turn 12", "entry_m": 2540, "apex_m": 2770, "exit_m": 2820, "dir": "L", "radius_m":  51},
+            {"no": 13, "name": "Turn 13", "entry_m": 3380, "apex_m": 3478, "exit_m": 3700, "dir": "R", "radius_m":  37},
+            {"no": 14, "name": "Turn 14", "entry_m": 3705, "apex_m": 4160, "exit_m": 4260, "dir": "L", "radius_m":  50},
+            {"no": 15, "name": "Turn 15", "entry_m": 4860, "apex_m": 4952, "exit_m": 5100, "dir": "L", "radius_m":  34},
+        ],
+        "corners": [],
+    },
 }
 
 # trackId → 内部 key 的反查表（Session 包只给数字 trackId）

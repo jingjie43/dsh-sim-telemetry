@@ -5,6 +5,8 @@
 这一版重点：**第三条赛道（Spa）+ 采集数据管理**——跑过的圈不再是一堆散落文件，而是能在设置页里挑出来对比、出图、打包、删除。
 
 ### 新增
+- **巴林（Bahrain International Circuit）赛道校准**：15 弯 `validated`（2026-11-05）——
+  三份实跑数据三取二，官方编号 Turn 1-15（巴林无传统弯名）
 - **斯帕（Spa-Francorchamps）赛道校准**：19 弯 `validated` + 官方弯名
   （La Source / Eau Rouge ×2 / Raidillon / Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve /
   Pouhon ×2 / Fagnes ×2 / Campus / Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2），
