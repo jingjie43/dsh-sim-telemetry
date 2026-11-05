@@ -391,6 +391,90 @@ def detect_track_len(laps_pkts, sess, fallback=DEFAULT_LEN):
     return mx if mx > 1000 else fallback
 
 
+def detect_straights(streams, laps_pkts, min_speed=280, min_len=100, grid=GRID):
+    """直道漂移检测：高速直道段上用世界坐标拟合直线，算横向偏移。
+
+    返回 [{lap, from_m, to_m, dev_std, dev_max, steer_std, gx_std}, ...]
+    dev_std = 横向偏移标准差（米），dev_max = 最大偏移；steer_std/gx_std = 方向盘/横向G 抖动。
+    """
+    import bisect as _bis
+    lap_rows = sorted((r["st"], r.get("dist"), r.get("lapNum"))
+                      for r in laps_pkts if r.get("dist") is not None)
+    if not lap_rows:
+        return []
+    lap_st = [x[0] for x in lap_rows]
+    lap_map = {x[0]: (x[1], x[2]) for x in lap_rows}
+    mot = streams.get("motion") or {}
+    tele = streams.get("tele") or {}
+    rows = []
+    for st in sorted(mot.keys()):
+        i = _bis.bisect_left(lap_st, st)
+        best = None
+        for j in (i - 1, i):
+            if 0 <= j < len(lap_st):
+                if best is None or abs(lap_st[j] - st) < abs(best - st):
+                    best = lap_st[j]
+        if best is None:
+            continue
+        d, ln = lap_map[best]
+        m = mot[st] or {}
+        t = tele.get(st) or {}
+        x, z, v = m.get("x"), m.get("z"), t.get("speed")
+        if x is None or z is None or v is None:
+            continue
+        rows.append({"lap": ln, "d": d, "v": v, "x": x, "z": z,
+                     "steer": t.get("steer"), "gx": m.get("gx")})
+    laps = {}
+    for r in rows:
+        laps.setdefault(r["lap"], []).append(r)
+
+    def _sd(vals):
+        if not vals:
+            return None
+        m = sum(vals) / len(vals)
+        return (sum((x - m) ** 2 for x in vals) / len(vals)) ** 0.5
+
+    out = []
+    for ln, rs in laps.items():
+        rs.sort(key=lambda r: r["d"])
+        start = None
+        segs = []
+        for i, r in enumerate(rs):
+            fast = r["v"] > min_speed
+            if fast and start is None:
+                start = i
+            elif not fast and start is not None:
+                if (i - start) * grid > min_len:
+                    segs.append((start, i))
+                start = None
+        if start is not None and (len(rs) - start) * grid > min_len:
+            segs.append((start, len(rs)))
+        for a, b in segs:
+            seg = rs[a:b]
+            if len(seg) < 5:
+                continue
+            x0, z0 = seg[0]["x"], seg[0]["z"]
+            x1, z1 = seg[-1]["x"], seg[-1]["z"]
+            dx, dz = x1 - x0, z1 - z0
+            n = (dx * dx + dz * dz) ** 0.5 or 1
+            nx, nz = -dz / n, dx / n
+            devs = [(p["x"] - x0) * nx + (p["z"] - z0) * nz for p in seg]
+            mean = sum(devs) / len(devs)
+            devs = [d - mean for d in devs]
+            out.append({
+                "lap": ln,
+                "from_m": round(seg[0]["d"]),
+                "to_m": round(seg[-1]["d"]),
+                "dev_std": round((sum(d * d for d in devs) / len(devs)) ** 0.5, 2),
+                "dev_max": round(max(abs(d) for d in devs), 2),
+                "steer_std": round(_sd([p["steer"] for p in seg if p["steer"] is not None]) or 0, 3),
+                "gx_std": round(_sd([p["gx"] for p in seg if p["gx"] is not None]) or 0, 2),
+            })
+    out.sort(key=lambda s: -s["dev_max"])
+    return out
+
+
+
 def analyse(path, total=None):
     """一次性算完，返回结论 dict。total 不传就按数据里的真实赛道长度算。"""
     import laps as L
@@ -409,6 +493,7 @@ def analyse(path, total=None):
         "corners": [],
         "incidents": [],
         "loss_by_segment": [],
+        "straights": [],
     }
 
     series_list = []
@@ -471,6 +556,11 @@ def analyse(path, total=None):
     else:
         result["corners"] = detect_corners(series_list[best_i], expected=expected)
         result["corner_source"] = "single_lap"
+
+    try:
+        result["straights"] = detect_straights(streams, laps_pkts)
+    except Exception:
+        result["straights"] = []
 
     for i, rs in enumerate(series_list):
         for inc in detect_incidents(rs):

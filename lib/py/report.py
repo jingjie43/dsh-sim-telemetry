@@ -127,6 +127,15 @@ def main():
     if laps[0]["full"] < 60:
         tips.append("全油门占比偏低：出弯给油可以更早更坚决")
 
+    straights = r.get("straights") or []
+    if straights:
+        bad = [s for s in straights if (s.get("dev_max") or 0) > 0.5]
+        if bad:
+            print("\n直道漂移（横向偏移 > 0.5m，车在直道发飘）：")
+            for s in bad[:5]:
+                print("  %5d-%5d m  L%s  偏移 %.2f m（最大 %.2f）· 方向盘抖动 %.3f"
+                      % (s["from_m"], s["to_m"], s["lap"], s["dev_std"], s["dev_max"], s.get("steer_std") or 0))
+
     if tips:
         print("\n该改什么：")
         for t in tips:
