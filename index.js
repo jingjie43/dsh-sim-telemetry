@@ -496,6 +496,8 @@ export function apply(ctx, config = {}) {
                   trackmap: ["make_track_map.py", ["auto", frames], 180000],
                   "corner-table": ["make_track_map.py", ["auto", frames], 180000],
                   "corners-detail": ["make_corner_detail.py", ["auto", frames], 180000],
+                  session: ["session_table.py", [frames, "--only", "overview"], 180000],
+                  "corner-apex": ["session_table.py", [frames, "--only", "corners"], 180000],
                 };
                 const job = JOBS[type];
                 if (!job) return send(400, { ok: false, error: "未知图类型: " + type });

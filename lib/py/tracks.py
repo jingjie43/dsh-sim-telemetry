@@ -179,6 +179,40 @@ TRACKS = {
         ],
         "corners": [],
     },
+    "monaco": {
+        "track_id": 5,
+        "name": "Circuit de Monaco",
+        "country": "MC",
+        "length_m": 3337,
+        "official_turns": 19,
+        "status": STATUS_PENDING,
+        "calibrated_from": "待校准（2026-11-05 开始采集；官方弯名来自 F1《How every Monaco corner got its name》）",
+        # 弯名：Sainte Devote / Beau Rivage / Massenet / Casino Square / Mirabeau Superior / Hairpin /
+        #       Mirabeau Inferior / Portier / The Tunnel / Nouvelle Chicane ×2 / Tabac /
+        #       Swimming Pool ×4 / Turn 17（无名） / La Rascasse / Antony Noghes
+        "detected_corners": [],
+        "corners": [
+            {"no": 1, "name": "Sainte Devote", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 2, "name": "Beau Rivage", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 3, "name": "Massenet", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 4, "name": "Casino Square", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 5, "name": "Mirabeau Superior", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 6, "name": "Hairpin", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 7, "name": "Mirabeau Inferior", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 8, "name": "Portier", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 9, "name": "The Tunnel", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 10, "name": "Nouvelle Chicane", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 11, "name": "Nouvelle Chicane", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 12, "name": "Tabac", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 13, "name": "Swimming Pool", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 14, "name": "Swimming Pool", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 15, "name": "Swimming Pool", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 16, "name": "Swimming Pool", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 17, "name": "Turn 17", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 18, "name": "La Rascasse", "entry_m": None, "apex_m": None, "exit_m": None},
+            {"no": 19, "name": "Antony Noghes", "entry_m": None, "apex_m": None, "exit_m": None},
+        ],
+    },
 }
 
 # trackId → 内部 key 的反查表（Session 包只给数字 trackId）

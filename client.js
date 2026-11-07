@@ -330,6 +330,8 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('trackmap'), disabled: busy }, '赛道图'),
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('corner-table'), disabled: busy }, '弯位表'),
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('corners-detail'), disabled: busy }, '逐弯细节'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('session'), disabled: busy }, '三圈成绩单'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('corner-apex'), disabled: busy }, '逐弯对比'),
         ) : null,
         msg ? h('div', { style: S.note }, msg) : null,
       )
