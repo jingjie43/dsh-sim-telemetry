@@ -205,8 +205,8 @@ def make_corners(r, path):
            % (track.split(" ")[0], len(rows), best_lap["n"]), font=f(26), fill=DIM)
 
     n_laps = len(laps)
-    lap_w = 175
-    cols = [("第N弯", 160), ("方向", 120)] + [("L%d" % l["n"], lap_w) for l in laps] + [("标注", 1920 - 80 - 160 - 120 - lap_w * n_laps - 80)]
+    lap_w = max(70, min(175, int((1920 - 80 - 160 - 120 - 300) / max(1, n_laps))))
+    cols = [("第N弯", 140), ("方向", 100)] + [("L%d" % l["n"], lap_w) for l in laps] + [("标注", 1920 - 80 - 140 - 100 - lap_w * n_laps - 80)]
     x0, y0, hh = 80, 186, 52
     rh = min(42, int((H - 220 - hh) / max(1, len(rows))))
     total_w = sum(c[1] for c in cols)
@@ -221,6 +221,8 @@ def make_corners(r, path):
         if ri % 2 == 0:
             d.rectangle([x0 + 2, y, x0 + total_w - 2, y + rh], fill=(23, 33, 52))
         per = row.get("laps") or []
+        while len(per) < n_laps:
+            per.append({})
         best_apex = max((p.get("apex") or 0) for p in per) if per else 0
         x = x0
         cell(d, x, y, 160, rh, row["no"], 25, True, WHITE, "center", 8)
@@ -254,18 +256,73 @@ def make_corners(r, path):
     return path
 
 
+def analyse_multi(paths, want=None):
+    """多个数据文件 → 合并所有圈 + 逐弯行；want = 只保留这些圈号（合并后的 1..N）。"""
+    results = [E.analyse(p) for p in paths]
+    laps = []
+    n = 0
+    for r, p in zip(results, paths):
+        for lap in r.get("laps") or []:
+            n += 1
+            laps.append({**lap, "n": n, "_src": os.path.basename(p)})
+    corners = {}
+    for r in results:
+        for row in r.get("corner_rows") or []:
+            key = row.get("no")
+            if key is None:
+                continue
+            if key not in corners:
+                corners[key] = {"no": key, "dir": row.get("dir"), "laps": []}
+            corners[key]["laps"].extend(row.get("laps") or [])
+    if want:
+        keep = [i for i, l in enumerate(laps) if l["n"] in want]
+        laps = [laps[i] for i in keep]
+        for no in range(1, len(laps) + 1):
+            laps[no - 1]["n"] = no
+        for key in corners:
+            src = corners[key]["laps"]
+            corners[key]["laps"] = [src[i] for i in keep if i < len(src)]
+    return {
+        "laps": laps,
+        "corner_rows": list(corners.values()),
+        "session": results[0].get("session") if results else {},
+        "incidents": [i for r in results for i in (r.get("incidents") or [])],
+        "loss_by_segment": [],
+        "_sources": [os.path.basename(p) for p in paths],
+    }
+
+
 def main():
     if len(sys.argv) < 2:
-        print("用法: python session_table.py <frames_XXX.jsonl> [--out <dir>]")
+        print("用法: python session_table.py <frames_1.jsonl> [frames_2.jsonl ...] [--out <dir>] [--only overview|corners]")
         return 1
-    path = sys.argv[1]
+    paths = [a for a in sys.argv[1:] if not a.startswith("--") and os.path.isfile(a)]
+    if not paths:
+        print("没有有效的 frames 文件")
+        return 1
     outdir = PLOTS
     if "--out" in sys.argv:
         outdir = sys.argv[sys.argv.index("--out") + 1]
 
-    r = E.analyse(path)
-    r["_source"] = path
-    ts = os.path.basename(path).replace("frames_", "").replace(".jsonl", "")
+    want = None
+    if "--laps" in sys.argv:
+        raw = sys.argv[sys.argv.index("--laps") + 1]
+        want = set()
+        for part in raw.replace("，", ",").split(","):
+            part = part.strip()
+            if part.isdigit():
+                want.add(int(part))
+        if not want:
+            want = None
+    if len(paths) > 1 or want:
+        r = analyse_multi(paths, want)
+    else:
+        r = E.analyse(paths[0])
+    if len(paths) == 1:
+        r["_source"] = paths[0]
+    ts = os.path.basename(paths[0]).replace("frames_", "").replace(".jsonl", "")
+    if len(paths) > 1:
+        ts = ts + "_multi" + str(len(paths))
     os.makedirs(outdir, exist_ok=True)
 
     only = None

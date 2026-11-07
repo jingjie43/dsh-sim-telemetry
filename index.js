@@ -480,11 +480,67 @@ export function apply(ctx, config = {}) {
                 const files = tsList.map((ts) => join(dataDir(), "frames_" + ts + ".jsonl"));
                 const outPath = join(dataDir(), "plots", "compare_" + type + "_" + Date.now() + ".png");
                 const out = await runPython("compare.py", [type, outPath, ...files], 240000);
-                return send(200, { ok: out.ok, png: outPath, output: out.stdout, error: out.stderr });
+                // 按「图片保存位置」设置把对比图复制出去（之前漏了这条，导致对比图只在数据目录）
+                const copiedCompare = [];
+                try {
+                  const mode = String(cfg.imageDir || "both");
+                  const targets = [];
+                  if (mode === "both" || mode === "desktop") targets.push(join(homedir(), "Desktop"));
+                  else if (mode !== "data" && mode.length > 1) {
+                    try { mkdirSync(mode, { recursive: true }); targets.push(mode); } catch { /* 忽略 */ }
+                  }
+                  if (existsSync(outPath) && targets.length) {
+                    const name = String(outPath).split(/[\\/]/).pop();
+                    for (const base of targets) {
+                      try { const dst = join(base, name); copyFileSync(outPath, dst); copiedCompare.push(dst); } catch { /* 忽略 */ }
+                    }
+                  }
+                } catch { /* 忽略 */ }
+                return send(200, { ok: out.ok, png: copiedCompare[0] || outPath, desk: copiedCompare, output: out.stdout, error: out.stderr });
               }
               // ---- 单份采集生成图（速度/油门/轨迹/赛道图/弯位表/逐弯细节）----
               if (req.method === "POST" && path === "/api/sim-telemetry/gen") {
                 const b = await body();
+                const type0 = String(b.type || "");
+                // 成绩单 / 逐弯对比：支持多份采集 + 圈号过滤
+                if (type0 === "session" || type0 === "corner-apex") {
+                  const tsList0 = tsOf(b);
+                  if (!tsList0.length) return send(400, { ok: false, error: "缺少记录" });
+                  const frames0 = tsList0.map((t) => join(dataDir(), "frames_" + t + ".jsonl"));
+                  const args0 = [...frames0, "--only", type0 === "session" ? "overview" : "corners"];
+                  const laps0 = String(b.laps || "").trim();
+                  if (laps0) args0.push("--laps", laps0);
+                  const startedAt0 = Date.now();
+                  const out0 = await runPython("session_table.py", args0, 240000);
+                  const copied0 = [];
+                  try {
+                    const plots0 = join(dataDir(), "plots");
+                    const mode0 = String(cfg.imageDir || "both");
+                    const targets0 = [];
+                    if (mode0 === "both" || mode0 === "desktop") targets0.push(join(homedir(), "Desktop"));
+                    else if (mode0 !== "data" && mode0.length > 1) {
+                      try { mkdirSync(mode0, { recursive: true }); targets0.push(mode0); } catch { /* 忽略 */ }
+                    }
+                    if (existsSync(plots0) && targets0.length) {
+                      for (const f of readdirSync(plots0)) {
+                        if (!f.endsWith(".png")) continue;
+                        const src0 = join(plots0, f);
+                        let mtime0 = 0;
+                        try { mtime0 = statSync(src0).mtimeMs; } catch { continue; }
+                        if (mtime0 < startedAt0 - 120000) continue;
+                        for (const base of targets0) {
+                          const dst0 = join(base, f);
+                          try { copyFileSync(src0, dst0); copied0.push(dst0); } catch { /* 忽略 */ }
+                        }
+                      }
+                    }
+                  } catch { /* 忽略 */ }
+                  return send(200, {
+                    ok: out0.ok, type: type0, desk: copied0,
+                    output: (out0.stdout.slice(-600) + (copied0.length ? "\n→ " + copied0.join("\n→ ") : "")),
+                    error: out0.stderr,
+                  });
+                }
                 const ts = String(b.ts || "");
                 if (!/^\d{8}_\d{6}$/.test(ts)) return send(400, { ok: false, error: "缺少记录" });
                 const type = String(b.type || "");
@@ -519,7 +575,7 @@ export function apply(ctx, config = {}) {
                       const src = join(plots, f);
                       let mtime = 0;
                       try { mtime = statSync(src).mtimeMs; } catch { continue; }
-                      if (mtime < startedAt - 3000) continue;
+                      if (mtime < startedAt - 120000) continue;
                       for (const base of targets) {
                         const dst = join(base, f);
                         try { copyFileSync(src, dst); copied.push(dst); } catch { /* 忽略 */ }
