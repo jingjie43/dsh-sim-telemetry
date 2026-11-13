@@ -148,22 +148,38 @@ F1 25 → 设置 → 遥测设置：
 
 ## 已知限制
 
-### ⚠️ 弯位校准进度：3 / 24 条赛道（都含官方弯名）
+### ⚠️ 弯位校准进度：12 / 24 条赛道（211 个弯，都含官方弯名或编号）
 
-- ✅ **银石（Silverstone）**：18 个弯，`validated` ——
-  2026-10-28 **重建**：旧表用「取曲率最强的 18 个峰」凑弯数，同一赛道两份数据最多差 870 米；
-  现改为「转角法找弯段 + 三份数据三取二」。官方弯名：Abbey / Farm Curve / Village / The Loop / Aintree /
-  Brooklands / Luffield / Woodcote / Copse / Maggotts ×2 / Becketts ×2 / Chapel / Stowe / Vale / Club ×2
-- ✅ **蒙扎（Monza）**：11 个弯，`validated` ——
-  三份数据交叉验证 + 官方弯名：Prima Variante / Curva Grande / Seconda Variante /
-  Lesmo 1 / Lesmo 2 / Ascari / Parabolica（来源：F1 官方《How every corner at Monza got its name》）
-- ✅ **斯帕（Spa-Francorchamps）**：19 个弯，`validated`（2026-11-03）——
-  三份实跑数据三取二 + 官方弯名：La Source / Eau Rouge ×2 / Raidillon / Les Combes ×2 / Malmedy /
-  Bruxelles / Jacky Ickx Curve / Pouhon ×2 / Fagnes ×2 / Campus / Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2
-  （来源：F1 官方《How every corner at the Circuit de Spa-Francorchamps got its name》）
-  ⚠️ 校准中修掉一个关键 bug：DEFAULT_LEN=5890 被所有赛道共用，Spa 7007 米后段（Blanchimont/Bus Stop）被整段丢弃；
-  现在按数据里的 trackLen 检测实际长度
-- ⚠️ **其余 22 条赛道**：还没填官方弯数，弯道识别会不准
+- ✅ **银石（Silverstone）**：18 个弯，`validated` —— 三份数据三取二，F1 官方弯名
+  （Abbey / Farm Curve / Village / The Loop / Aintree / Brooklands / Luffield / Woodcote / Copse /
+  Maggotts ×2 / Becketts ×2 / Chapel / Stowe / Vale / Club ×2）
+- ✅ **蒙扎（Monza）**：11 个弯，`validated` —— F1 官方弯名
+  （Prima Variante / Curva Grande / Seconda Variante / Lesmo 1 / Lesmo 2 / Ascari / Parabolica）
+- ✅ **斯帕（Spa-Francorchamps）**：19 个弯，`validated` —— F1 官方弯名
+  （La Source / Eau Rouge ×2 / Raidillon / Les Combes ×2 / Malmedy / Bruxelles / Jacky Ickx Curve /
+  Pouhon ×2 / Fagnes ×2 / Campus / Curve Paul Frere / Blanchimont ×2 / Bus Stop ×2）
+- ✅ **巴林（Bahrain）**：15 个弯，`validated` —— 官方编号 Turn 1-15
+- ✅ **摩纳哥（Monaco）**：19 个弯，`validated` —— F1 官方弯名
+  （Sainte Devote / Beau Rivage / Massenet / Casino Square / Mirabeau Superior / Hairpin /
+  Mirabeau Inferior / Portier / The Tunnel / Nouvelle Chicane ×2 / Tabac / Swimming Pool ×4 /
+  Turn 17 / La Rascasse / Antony Noghes）
+- ✅ **澳大利亚（Albert Park）**：14 个弯，`validated` —— 官方编号 Turn 1-14
+- ✅ **上海（Shanghai）**：16 个弯，`validated` —— 官方编号 Turn 1-16（T1-T2 螺旋弯 Snail）
+- ✅ **铃鹿（Suzuka）**：18 个弯，`validated` —— F1 官方弯名
+  （S Curves ×5 / Degner 1-2 / Hairpin / Spoon Curve ×2 / 130R / Casio Triangle ×2 / Last Curve）
+- ✅ **吉达（Jeddah）**：27 个弯，`validated` —— 官方编号 Turn 1-27
+- ✅ **迈阿密（Miami）**：19 个弯，`validated` —— 官方编号 Turn 1-19
+- ✅ **伊莫拉（Imola）**：19 个弯，`validated` —— F1 官方弯名
+  （Tamburello ×2 / Villeneuve / Tosa / Piratella ×2 / Acque Minerali ×2 / Variante Alta ×2 / Rivazza ×2）
+- ✅ **巴塞罗那（Catalunya）**：16 个弯，`validated` —— F1 官方弯名（Campsa / La Caixa）
+
+- ⚠️ **其余 12 条赛道**：还没填官方弯数，弯道识别会不准
+
+**校准标准**：每条赛道用 3 份独立实跑数据做**三取二交叉验证**（每弯位置差 ≤40 米），
+不是单份数据凑数——银石早期就是吃了单份数据的亏（两份数据同弯差 870 米）。
+
+**⚠️ 游戏 trackId 以实测为准**：资料上的 trackId 表不一定对（斯帕 10、铃鹿 13、吉达 29、迈阿密 30、
+伊莫拉 27、巴塞罗那 4 都是实测出来的，和网上流传的「标准表」有出入）。
 
 **为什么**：弯位必须用实跑数据校准，不能凭空填 —— 公开资料只有弯名和赛道全长，
 游戏内的赛道资源是加密的私有格式。唯一可靠的数据源就是玩家实跑一圈的遥测。

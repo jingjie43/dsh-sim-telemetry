@@ -1,7 +1,7 @@
 {
   "name": "dsh-sim-telemetry",
-  "version": "0.2.5",
-  "description": "F1 25 UDP 遥测采集与分析（DSH 插件）",
+  "version": "0.3.0",
+  "description": "F1 25 遥测分析插件：12 条赛道 211 弯校准、逐弯诊断、比赛工程师报告（DSH 插件）",
   "type": "module",
   "main": "index.js",
   "files": [

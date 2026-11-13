@@ -211,15 +211,32 @@ def make_map(track, ax, az, v, nlaps, src):
             groups.append({"name": nm, "cs": [c]})
 
     y = 356
-    rowh = 72 if len(groups) > 10 else 96
-    for g in groups:
-        nos = [c["no"] for c in g["cs"]]
-        dirs = " ".join(c["dir"] for c in g["cs"])
-        no_txt = " · ".join(str(n) for n in nos)
-        d.text((lx0 + 30, y), no_txt, font=f(24, True), fill=ACCENT)
-        d.text((lx0 + 150, y + 2), g["name"], font=f(24, True), fill=WHITE)
-        d.text((lx0 + lw - 90, y + 2), dirs, font=f(20), fill=DIM)
-        y += rowh
+    if len(groups) > 18:
+        # 弯数多（如吉达 27 弯）：图例分两栏、缩小字号
+        per_col = (len(groups) + 1) // 2
+        rowh = 58
+        colw = lw // 2
+        for i, g in enumerate(groups):
+            col = i // per_col
+            row = i % per_col
+            nos = [c["no"] for c in g["cs"]]
+            dirs = " ".join(c["dir"] for c in g["cs"])
+            no_txt = " · ".join(str(n) for n in nos)
+            x = lx0 + 26 + col * colw
+            yy = y + row * rowh
+            d.text((x, yy), no_txt, font=f(18, True), fill=ACCENT)
+            d.text((x + 100, yy + 1), g["name"][:13], font=f(18, True), fill=WHITE)
+            d.text((x + colw - 52, yy + 1), dirs, font=f(15), fill=DIM)
+    else:
+        rowh = 72 if len(groups) > 10 else 96
+        for g in groups:
+            nos = [c["no"] for c in g["cs"]]
+            dirs = " ".join(c["dir"] for c in g["cs"])
+            no_txt = " · ".join(str(n) for n in nos)
+            d.text((lx0 + 30, y), no_txt, font=f(24, True), fill=ACCENT)
+            d.text((lx0 + 150, y + 2), g["name"], font=f(24, True), fill=WHITE)
+            d.text((lx0 + lw - 90, y + 2), dirs, font=f(20), fill=DIM)
+            y += rowh
 
     d.line([(80, H - 130), (W - 80, H - 130)], fill=LINE, width=2)
     d.text((80, H - 108), "弯号对应 tracks.py 的 %s.detected_corners" % track.get("_key", ""),

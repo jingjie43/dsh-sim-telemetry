@@ -73,34 +73,37 @@ def fmt_ms(ms):
 
 
 def lap_notes(r, best):
-    """给每圈生成问题标注：从 incidents + 时间损失最大段。"""
-    notes = {}
+    """给每圈生成问题标注：相对最快圈差 + 逐弯慢点 + 失误。"""
     laps = r.get("laps") or []
+    rows = r.get("corner_rows") or []
+    notes = {l["n"]: [] for l in laps}
+    if not laps or not best:
+        return notes
+    best_ms = best["lap_ms"]
     for lap in laps:
-        notes[lap["n"]] = []
-    # 失误（按圈）
+        gap = (lap["lap_ms"] - best_ms) / 1000.0
+        if gap > 3.0:
+            notes[lap["n"]].append("慢 %.1fs" % gap)
+        elif gap > 1.0:
+            notes[lap["n"]].append("慢 %.1fs" % gap)
+    # 逐弯：该圈 apex 比该弯最好低多少
+    for row in rows:
+        per = row.get("laps") or []
+        vals = [(i, p.get("apex")) for i, p in enumerate(per) if p and p.get("apex")]
+        if len(vals) < 2:
+            continue
+        best_apex = max(v for _, v in vals)
+        for i, val in vals:
+            if i >= len(laps):
+                continue
+            diff = best_apex - val
+            if diff >= 25:
+                notes[laps[i]["n"]].append("T%s 慢 %d" % (row.get("no"), diff))
+    # 失误（按合并后的圈号，incidents 的 lap_n 已重映射）
     for inc in r.get("incidents") or []:
         n = inc.get("lap_n")
-        if n in notes:
-            notes[n].append("%.0f m spin（%.0f→%.0f）" % (
-                inc.get("at_d", 0), inc.get("v_from", 0), inc.get("v_to", 0)))
-    # 时间损失最大的两段（按圈）
-    segs = r.get("loss_by_segment") or []
-    by_lap = {}
-    for seg in segs:
-        losses = seg.get("loss") or []
-        for i, l in enumerate(losses):
-            if l is None or i >= len(laps):
-                continue
-            ln = laps[i]["n"]
-            if not isinstance(l, (int, float)) or l >= -0.05:
-                continue
-            by_lap.setdefault(ln, []).append((l, seg.get("from_m", 0)))
-    for ln, items in by_lap.items():
-        items.sort()
-        for l, d in items[:2]:
-            if ln in notes:
-                notes[ln].append("%.0f m 丢 %.1fs" % (d, -l))
+        if n in notes and len(notes[n]) < 3:
+            notes[n].append("%.0f m spin" % (inc.get("at_d") or 0))
     return notes
 
 
@@ -116,14 +119,16 @@ def make_overview(r, path):
     d = ImageDraw.Draw(img)
     background(d)
 
-    d.text((80, 64), "%s · 三圈成绩单" % track, font=f(60, True), fill=WHITE)
+    d.text((80, 64), "%s · 成绩单" % track, font=f(60, True), fill=WHITE)
     d.text((82, 146), "F1 25 · %d 圈 · 极速 %d km/h" % (
         len(laps), max((l["max"] or 0) for l in laps) if laps else 0), font=f(28), fill=DIM)
     d.text((W - 460, 108), "dsh-sim-telemetry", font=f(30, True), fill=ACCENT)
 
-    cols = [("圈次", 150), ("圈速", 240), ("与最快差", 210), ("极速", 150),
-            ("均速", 150), ("全油门", 170), ("滑行", 150), ("问题标注", 570)]
-    x0, y0, rh, hh = 80, 250, 92, 64
+    nrows_tmp = max(1, len(laps))
+    rh = min(92, max(46, int((H - 250 - 64 - 210) / nrows_tmp)))
+    cols = [("圈次", 130), ("圈速", 220), ("与最快差", 200), ("极速", 140),
+            ("均速", 140), ("全油门", 150), ("滑行", 130), ("问题标注", 650)]
+    x0, y0, hh = 80, 250, 64
     total_w = sum(c[1] for c in cols)
     nrows = max(1, len(laps))
     d.rounded_rectangle([x0, y0, x0 + total_w, y0 + hh + rh * nrows + 8],
@@ -138,7 +143,8 @@ def make_overview(r, path):
             d.rectangle([x0 + 2, y, x0 + total_w - 2, y + rh], fill=(23, 33, 52))
         is_best = ri == 0
         gap = "★ 最快" if is_best else "+%.3f" % ((lap["lap_ms"] - best_ms) / 1000)
-        note = "；".join(notes.get(lap["n"]) or []) or "—"
+        items = (notes.get(lap["n"]) or [])[:2]
+        note = "；".join(items) or "—"
         x = x0
         cell(d, x, y, 150, rh, "L%d" % lap["n"], 34, True, ACCENT if is_best else WHITE, "center", 18)
         x += 150
@@ -157,12 +163,13 @@ def make_overview(r, path):
         color = RED if ("spin" in note or "出界" in note) else (ORANGE if ("丢" in note) else DIM)
         cell(d, x, y, 570, rh, note[:34], 26, False, color, "left", 14)
 
-    # 结论：最快与最慢差 + 最大损失段
-    y = y0 + hh + rh * nrows + 44
+    # 结论：最快与最慢差
+    y = y0 + hh + rh * nrows + 26
     d.text((80, y), "结论", font=f(30, True), fill=ACCENT)
     if laps and len(laps) > 1:
         spread = (laps[-1]["lap_ms"] - best_ms) / 1000
-        d.text((80, y + 52), "三圈差 %.3f 秒（最快 L%d %s，最慢 L%d %s）" % (
+        d.text((80, y + 52), "%d 圈差 %.3f 秒（最快 L%d %s，最慢 L%d %s）" % (
+            len(laps),
             spread, best["n"], best["lap_str"], laps[-1]["n"], laps[-1]["lap_str"]),
             font=f(36, True), fill=WHITE)
         segs = r.get("loss_by_segment") or []
@@ -176,7 +183,7 @@ def make_overview(r, path):
             d.text((80, y), "最大损失段：%.0f~%.0f m（丢 %.2f 秒）" % (worst[1], worst[2], -worst[0]),
                    font=f(30), fill=(200, 210, 226))
 
-    y = H - 110
+    y = H - 76
     d.line([(80, y), (W - 80, y)], fill=LINE, width=2)
     d.text((80, y + 22), "数据：%s · 弯位编号见轨迹诊断图" % os.path.basename(
         (r.get("_source") or "frames.jsonl")), font=f(24), fill=DIM)
@@ -184,6 +191,36 @@ def make_overview(r, path):
 
     img.save(path)
     return path
+
+
+def corner_advice(row):
+    """根据各圈操作差异给出问题 + 怎么改。"""
+    per = [p for p in (row.get("laps") or []) if p and p.get("apex")]
+    if len(per) < 2:
+        return "数据不足", ""
+    vals = [p["apex"] for p in per]
+    spread = max(vals) - min(vals)
+    if spread >= 30:
+        problem = "极差 %d，跑法不一致" % spread
+    elif spread >= 15:
+        problem = "差 %d km/h" % spread
+    else:
+        problem = "稳定"
+    if problem == "稳定":
+        return problem, "保持这个节奏"
+    tips = []
+    brake = [p.get("brake_d") for p in per if p.get("brake_d")]
+    if len(brake) >= 2 and max(brake) - min(brake) > 10:
+        tips.append("刹车点固定到 %.0f m" % min(brake))
+    gas = [p.get("gas_d") for p in per if p.get("gas_d")]
+    if len(gas) >= 2 and max(gas) - min(gas) > 20:
+        tips.append("给油点统一到 %.0f m" % min(gas))
+    steer = [p.get("steer_peak") for p in per if p.get("steer_peak")]
+    if len(steer) >= 2 and max(steer) - min(steer) > 0.08:
+        tips.append("方向给到 %.2f" % max(steer))
+    if not tips:
+        tips.append("保持这个节奏" if spread < 10 else "先固定走线")
+    return problem, tips[0] if tips else "先固定走线"
 
 
 def make_corners(r, path):
@@ -205,8 +242,10 @@ def make_corners(r, path):
            % (track.split(" ")[0], len(rows), best_lap["n"]), font=f(26), fill=DIM)
 
     n_laps = len(laps)
-    lap_w = max(70, min(175, int((1920 - 80 - 160 - 120 - 300) / max(1, n_laps))))
-    cols = [("第N弯", 140), ("方向", 100)] + [("L%d" % l["n"], lap_w) for l in laps] + [("标注", 1920 - 80 - 140 - 100 - lap_w * n_laps - 80)]
+    fixed_w = 90 + 60 + 190 + 240
+    lap_w = max(60, min(175, int((1920 - 160 - fixed_w) / max(1, n_laps))))
+    cols = ([("第N弯", 90), ("方向", 60)] + [("L%d" % l["n"], lap_w) for l in laps]
+            + [("问题", 190), ("怎么改", 240)])
     x0, y0, hh = 80, 186, 52
     rh = min(42, int((H - 220 - hh) / max(1, len(rows))))
     total_w = sum(c[1] for c in cols)
@@ -225,10 +264,10 @@ def make_corners(r, path):
             per.append({})
         best_apex = max((p.get("apex") or 0) for p in per) if per else 0
         x = x0
-        cell(d, x, y, 160, rh, row["no"], 25, True, WHITE, "center", 8)
-        x += 160
-        cell(d, x, y, 120, rh, row.get("dir") or "", 24, False, DIM, "center", 8)
-        x += 120
+        cell(d, x, y, 90, rh, row["no"], 24, True, WHITE, "center", 6)
+        x += 90
+        cell(d, x, y, 60, rh, row.get("dir") or "", 22, False, DIM, "center", 4)
+        x += 60
         for p in per[:n_laps]:
             val = p.get("apex") or 0
             col = WHITE
@@ -241,19 +280,26 @@ def make_corners(r, path):
                 col = ACCENT
             cell(d, x, y, lap_w, rh, val, 26, False, col, "center", 8)
             x += lap_w
-        # 标注：最快圈 vs 最慢圈差
-        note = ""
-        if per:
-            vals = [p.get("apex") or 0 for p in per]
-            mx, mn = max(vals), min(vals)
-            if mx - mn >= 30:
-                note = "极差 %d km/h" % (mx - mn)
-            elif mx - mn >= 15:
-                note = "差 %d km/h" % (mx - mn)
-        cell(d, x, y, cols[-1][1], rh, note, 22, False, DIM, "left", 12)
+        # 问题 + 怎么改
+        problem, advice = corner_advice(row)
+        pcol = RED if "极差" in problem else (ORANGE if "差" in problem else DIM)
+        cell(d, x, y, 190, rh, problem[:15], 19, False, pcol, "left", 8)
+        x += 190
+        cell(d, x, y, 240, rh, advice[:24], 19, False, (ACCENT if "保持" in advice else WHITE), "left", 8)
 
     img.save(path)
     return path
+
+
+def _remap_incidents(results):
+    """把每个文件里的 incidents.lap_n 映射成合并后的圈号。"""
+    out = []
+    n = 0
+    for r in results:
+        for inc in r.get("incidents") or []:
+            out.append({**inc, "lap_n": (inc.get("lap_n") or 0) + n})
+        n += len(r.get("laps") or [])
+    return out
 
 
 def analyse_multi(paths, want=None):
@@ -286,7 +332,7 @@ def analyse_multi(paths, want=None):
         "laps": laps,
         "corner_rows": list(corners.values()),
         "session": results[0].get("session") if results else {},
-        "incidents": [i for r in results for i in (r.get("incidents") or [])],
+        "incidents": _remap_incidents(results),
         "loss_by_segment": [],
         "_sources": [os.path.basename(p) for p in paths],
     }

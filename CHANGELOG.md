@@ -1,10 +1,34 @@
 # Changelog
 
-## 0.2.5 — 2026-11-03
+## 0.3.0 — 2026-11-13
 
 这一版重点：**第三条赛道（Spa）+ 采集数据管理**——跑过的圈不再是一堆散落文件，而是能在设置页里挑出来对比、出图、打包、删除。
 
 ### 新增
+- **西班牙巴塞罗那（Circuit de Barcelona-Catalunya）赛道校准**：16 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（16/16 通过），官方弯名（T9 Campsa / T10 La Caixa）；
+  游戏实测 trackId = 4（不是资料里的 3），赛道长度 4664 米（官方 4657）
+- **伊莫拉（Autodromo Enzo e Dino Ferrari）赛道校准**：19 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（19/19 通过），官方弯名（Tamburello ×2 / Villeneuve / Tosa / Piratella ×2 /
+  Acque Minerali ×2 / Variante Alta ×2 / Rivazza ×2）；游戏实测 trackId = 27（不是资料里的 23）
+- **迈阿密（Miami International Autodrome）赛道校准**：19 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（19/19 通过），官方编号 Turn 1-19；游戏实测 trackId = 30（不是资料里的 26），
+  赛道长度 5410 米（官方 5412）
+- **沙特吉达（Jeddah Corniche Circuit）赛道校准**：27 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（27/27 通过），官方编号 Turn 1-27（吉达无传统弯名）；
+  游戏实测 trackId = 29（不是资料里的 25），赛道长度 6175 米（官方 6174）
+- **日本铃鹿（Suzuka International Racing Course）赛道校准**：18 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（18/18 通过），官方弯名（Turn 1-2 / S Curves ×5 / Degner 1-2 / Hairpin /
+  Spoon Curve ×2 / 130R / Casio Triangle ×2 / Last Curve）；游戏实测 trackId = 13（不是资料里的 12）
+- **上海（Shanghai International Circuit）赛道校准**：16 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（16/16 通过），官方编号 Turn 1-16（T1-T2 螺旋弯俗称 Snail）；
+  游戏实测 trackId = 2（不是资料里的 1），赛道长度 5441 米
+- **澳大利亚（Albert Park）赛道校准**：14 弯 `validated`（2026-11-13）——
+  三份实跑数据三取二（14/14 通过），官方编号 Turn 1-14（2022 改版后无传统弯名）
+- **摩纳哥（Circuit de Monaco）赛道校准**：19 弯 `validated`（2026-11-07）——
+  三份实跑数据三取二（19/19 通过），官方弯名（Sainte Devote / Beau Rivage / Massenet / Casino Square /
+  Mirabeau Superior / Hairpin / Mirabeau Inferior / Portier / The Tunnel / Nouvelle Chicane ×2 / Tabac /
+  Swimming Pool ×4 / Turn 17 / La Rascasse / Antony Noghes）
 - **巴林（Bahrain International Circuit）赛道校准**：15 弯 `validated`（2026-11-05）——
   三份实跑数据三取二，官方编号 Turn 1-15（巴林无传统弯名）
 - **斯帕（Spa-Francorchamps）赛道校准**：19 弯 `validated` + 官方弯名
@@ -21,10 +45,13 @@
   方向 / 半径 / apex 速度
 - **直道漂移检测**：报告新增「直道漂移」段——高速直道（>280 km/h）上用世界坐标拟合直线，
   算横向偏移和方向盘抖动，自动标出「发飘」的直道段（偏移 > 0.5m），并区分是车/路面在飘还是驾驶输入问题
-- **三圈成绩单 + 逐弯 apex 对比图**（设置页一键生成，`session_table.py`）：
-  成绩单含圈速/极差/极速/均速/全油/滑行 + 自动问题标注；逐弯对比按弯列各圈 apex、标出差值
+- **成绩单 + 逐弯 apex 对比图**（设置页「圈速对比」组，`session_table.py`）：
+  - 可勾选**多份采集**合并对比（勾 1 份 = 3 圈，勾 2 份 = 6 圈），不限于单份数据
+  - 支持**圈号过滤**（如填 1,3,5 只对比这几圈）
+  - 成绩单含圈速/极差/极速/均速/全油/滑行 + 自动问题标注（失误/时间损失）
+  - 逐弯对比按弯列各圈 apex，差 8+ 标橙、15+ 标红、快 10+ 标青
 - **图片保存位置可配**（设置页）：数据目录 + 桌面（默认）/ 仅数据目录 / 仅桌面 / 自定义目录，
-  生成图后按设置复制，提示会给出完整文件路径
+  生成图后按设置复制，提示会给出完整文件路径（含**对比图**——之前对比图漏了复制，已修）
 - **设置页显示作者信息**：面板底部「作者：B站「静戒」· UID 544228946」
 
 ### 改进

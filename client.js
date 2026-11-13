@@ -263,15 +263,22 @@ window.__ModuleLoader__.load({
           setMsg(r.ok ? '对比图已生成：' + r.png : '生成失败: ' + (r.error || ''))
         } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
       }
-      const doGen = async (type) => {
-        if (selected.length !== 1) { setMsg('先勾选 1 份记录'); return }
-        setBusy(true)
-        try {
-          const r = await jpost('/gen', { ts: selected[0], type })
-          setMsg(r.ok ? '已生成：' + (r.desk && r.desk.length ? r.desk.join('  ') : (r.output || '')) : '失败: ' + (r.error || ''))
-        } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
-      }
-      const doExport = async () => {
+            const doGen = async (type) => {
+              const multi = (type === 'session' || type === 'corner-apex')
+              if (multi ? selected.length < 1 : selected.length !== 1) {
+                setMsg(multi ? '请先勾选至少 1 份记录（可多选）' : '请先勾选 1 份记录')
+                return
+              }
+              setBusy(true)
+              try {
+                const payload = multi
+                  ? { ts: selected, type, laps: String(lapsFilter || '').trim() }
+                  : { ts: selected[0], type }
+                const r = await jpost('/gen', payload)
+                setMsg(r.ok ? '已生成：' + (r.desk && r.desk.length ? r.desk.join('  ') : (r.output || '')) : '失败: ' + (r.error || ''))
+              } catch (e) { setMsg('失败: ' + String(e)) } finally { setBusy(false) }
+            }
+const doExport = async () => {
         if (!selected.length) { setMsg('先勾选记录'); return }
         setBusy(true)
         try {
@@ -331,7 +338,10 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('trackmap'), disabled: busy }, '赛道图'),
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('corner-table'), disabled: busy }, '弯位表'),
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('corners-detail'), disabled: busy }, '逐弯细节'),
-          h('button', { type: 'button', style: S.btn, onClick: () => doGen('session'), disabled: busy }, '三圈成绩单'),
+        ) : null,
+        selected.length >= 1 ? h('div', { style: { ...S.row, marginTop: 6, flexWrap: 'wrap' } },
+          h('span', { style: S.note }, '圈速对比（可勾多份）：'),
+          h('button', { type: 'button', style: S.btn, onClick: () => doGen('session'), disabled: busy }, '成绩单'),
           h('button', { type: 'button', style: S.btn, onClick: () => doGen('corner-apex'), disabled: busy }, '逐弯对比'),
         ) : null,
         msg ? h('div', { style: S.note }, msg) : null,
