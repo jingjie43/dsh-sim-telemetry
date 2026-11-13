@@ -178,16 +178,24 @@ window.__ModuleLoader__.load({
           h('span', { style: S.note }, '默认 20777；游戏里改过端口就同步改这里')),
         h('div', { style: S.row },
           h('span', { style: S.label }, '图片保存位置'),
-          h('select', {
-            style: S.num,
-            value: (() => { const m = st && st.imageDir ? st.imageDir : 'both'; return ['both', 'data', 'desktop'].includes(m) ? m : 'custom' })(),
-            onChange: (e) => act(() => jpost('/settings', { imageDir: e.target.value })),
-          },
-            h('option', { value: 'both' }, '数据目录 + 桌面'),
-            h('option', { value: 'data' }, '仅数据目录'),
-            h('option', { value: 'desktop' }, '仅桌面'),
-            h('option', { value: 'custom', disabled: true }, '自定义（见下行）'),
-          )),
+          (() => {
+            const cur = (() => { const m = st && st.imageDir ? st.imageDir : 'both'; return ['both', 'data', 'desktop'].includes(m) ? m : 'custom' })();
+            const opts = [['both', '数据目录 + 桌面'], ['data', '仅数据目录'], ['desktop', '仅桌面']];
+            return h('div', { style: { display: 'flex', gap: 14, alignItems: 'center' } },
+              ...opts.map(([v, label]) => h('label', {
+                key: v,
+                style: { display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, cursor: 'pointer' },
+              },
+                h('input', {
+                  type: 'radio', name: 'imageDir', value: v,
+                  checked: cur === v,
+                  onChange: () => act(() => jpost('/settings', { imageDir: v })),
+                }),
+                h('span', null, label),
+              )),
+            );
+          })(),
+        ),
         h('div', { style: S.row },
           h('span', { style: S.label }, '自定义目录'),
           h('input', {
